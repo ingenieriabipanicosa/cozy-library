@@ -3,8 +3,9 @@ import streamlit as st
 # Configuración de la página (estilo amplio)
 st.set_page_config(page_title="Bipanick Engineer's Booklist ", layout="wide")
 
-# Título de bienvenida
-st.markdown("<h1 style='text-align: center; color: #F48FB1;'>Bipanick Engineer's Booklist </h1>", unsafe_allow_html=True)
+# Tí# Título muy grande
+
+st.title("<h1 style='text-align: center; color: #F48FB1;'>Bipanick Engineer's Booklist </h1>", unsafe_allow_html=True)
 
 # Crear 3 columnas para los botones de inicio
 col1, col2, col3 = st.columns(3)
