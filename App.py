@@ -17,21 +17,31 @@ from pathlib import Path
 # CONFIG GENERAL
 # ============================================================
 st.set_page_config(
-    page_title="🌸 Bitácora Otaku 🌸",
-    page_icon="🌸",
+    page_title="Katsearose's Dreamscape",
+    page_icon="🪷",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 DB_PATH = "otaku_bitacora.db"
 
+APP_TITLE = "𑣲⋆  Katsearose's Dreamscape ⋆˚꩜｡"
+APP_DIVIDER = "────୨ৎ────"
+APP_KAOMOJI_SUB = "⋆˚꩜｡𐔌՞ ܸ.ˬ.ܸ՞𐦯"
+
+KAOMOJI_HAPPY = "(♡ˊ͈ ꒳ ˋ͈)"
+KAOMOJI_SHY = "(˶˃𐃷˂˶)"
+KAOMOJI_SURPRISED = "( ˶°ㅁ°) !!"
+
+FAVORITES_LABEL = "🌷͙֒ FAVORITES ㅤㅤㅤㅤ⋆.˚"
+
 SECTIONS = {
-    "BL": {"label": "💗 BL", "emoji": "💗", "link_label": "🔗 Enlace donde lo leo"},
-    "BOOKS": {"label": "📚 Books", "emoji": "📚", "link_label": "🔗 Enlace donde lo leo"},
-    "STUDY": {"label": "📝 Study", "emoji": "📝", "link_label": "☁️ Enlace de Google Drive / Notion"},
+    "BL": {"label": "⋆.𐙚 ̊  BL  🪷", "emoji": "🪷", "link_label": "🔗 Enlace donde lo leo"},
+    "BOOKS": {"label": "⋆.𐙚 ̊ BOOKS 📚", "emoji": "📚", "link_label": "🔗 Enlace donde lo leo"},
+    "STUDY": {"label": "⋆.𐙚 ̊ STUDY 📖", "emoji": "📖", "link_label": "☁️ Enlace de Google Drive / Notion"},
 }
 
-DEFAULT_COLORS = ["#FFB6C1", "#B5EAD7", "#C7CEEA", "#FFDAC1", "#E2F0CB", "#F1C0E8", "#FFF5BA"]
+DEFAULT_COLORS = ["#FFD6E8", "#FFC2D6", "#FBE4EF", "#F7A8C4", "#FADDE8", "#F6C6DA", "#FFE9F2"]
 
 # ============================================================
 # ESTILO "KAWAII" (CSS)
@@ -40,94 +50,169 @@ def inject_css():
     st.markdown(
         """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&family=Poppins:wght@400;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Poppins:wght@400;600;700&family=Caveat:wght@600;700&display=swap');
 
         html, body, [class*="css"]  {
             font-family: 'Quicksand', sans-serif;
         }
 
+        /* ---------- Fondo general: blanco con tonos rosa ---------- */
         .stApp {
-            background: linear-gradient(160deg, #FFE9F0 0%, #F1E6FF 45%, #E6F0FF 100%);
+            background: #FFFFFF;
+            background-image:
+                radial-gradient(circle at 6% 8%, #FFF1F7 0%, rgba(255,255,255,0) 30%),
+                radial-gradient(circle at 95% 12%, #FFF1F7 0%, rgba(255,255,255,0) 28%),
+                radial-gradient(circle at 50% 100%, #FFF6FA 0%, rgba(255,255,255,0) 40%);
         }
 
-        /* Tarjetas grandes de inicio */
-        .home-card {
-            background: white;
-            border-radius: 28px;
-            padding: 40px 20px;
-            text-align: center;
-            box-shadow: 0 8px 20px rgba(255, 182, 193, 0.35);
-            transition: transform 0.15s ease-in-out;
-            border: 3px solid #FFD6E8;
+        section[data-testid="stSidebar"] {
+            background: #FFFAFC;
+            border-right: 2px dashed #FBD3E4;
         }
-        .home-card:hover {
-            transform: translateY(-6px) scale(1.02);
-        }
-        .home-title {
+
+        /* ---------- Encabezado / título decorativo ---------- */
+        .app-title {
             font-family: 'Poppins', sans-serif;
             font-weight: 700;
-            font-size: 42px;
+            font-size: 40px;
             text-align: center;
-            color: #C2185B;
-            margin-bottom: 0px;
+            color: #E0699A;
+            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+        }
+        .app-divider {
+            text-align: center;
+            color: #F3B6CE;
+            font-size: 18px;
+            letter-spacing: 3px;
+            margin: 2px 0 4px 0;
+        }
+        .app-kaomoji {
+            text-align: center;
+            color: #E9A6C4;
+            font-size: 15px;
+            margin-bottom: 22px;
         }
         .home-sub {
             text-align: center;
-            color: #9C7AB0;
+            color: #C98BAE;
             margin-bottom: 30px;
-            font-size: 16px;
+            font-family: 'Caveat', cursive;
+            font-size: 22px;
         }
 
-        /* Tarjeta de item (libro) */
+        /* ---------- Tarjetas grandes de inicio (BL / BOOKS / STUDY) ---------- */
+        .home-card {
+            background: #FFFCFD;
+            border-radius: 26px;
+            padding: 38px 18px 30px 18px;
+            text-align: center;
+            box-shadow: 0 6px 18px rgba(247, 168, 196, 0.25);
+            transition: transform 0.15s ease-in-out;
+            border: 2px dashed #F8C7DC;
+            position: relative;
+        }
+        .home-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            border: 2px dashed #E0699A;
+        }
+        .home-card-icon {
+            font-size: 52px;
+            margin-bottom: 6px;
+        }
+        .home-card-label {
+            font-family: 'Poppins', sans-serif;
+            font-size: 19px;
+            font-weight: 700;
+            color: #C2185B;
+            letter-spacing: 1px;
+        }
+
+        /* ---------- Cabeceras de sección con estilito 2D ---------- */
+        .section-header {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 30px;
+            color: #D6538A;
+            border-bottom: 2px dotted #F6C7DC;
+            padding-bottom: 8px;
+            margin-bottom: 6px;
+        }
+
+        /* ---------- Tarjeta de item (libro) ---------- */
         .book-card {
-            background: white;
-            border-radius: 18px;
+            background: #FFFDFE;
+            border-radius: 16px;
             padding: 14px 18px;
             margin-bottom: 10px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
-            border-left: 8px solid #FFD6E8;
+            box-shadow: 0 2px 8px rgba(230, 150, 180, 0.12);
+            border: 1.5px solid #FCE1EC;
+            border-left: 7px solid #FFD6E8;
         }
         .book-title {
             font-weight: 700;
-            font-size: 18px;
-            color: #4A2E4D;
+            font-size: 17px;
+            color: #7A3B57;
         }
         .stars {
-            color: #FFC107;
-            font-size: 16px;
+            color: #F2A6C4;
+            font-size: 15px;
         }
         .fav-heart {
-            color: #FF4081;
-            font-size: 20px;
+            color: #E0699A;
+            font-size: 18px;
         }
         .tag-chip {
             display: inline-block;
             padding: 2px 10px;
             border-radius: 12px;
-            font-size: 12px;
-            color: white;
-            font-weight: 600;
+            font-size: 11px;
+            color: #8A3F5C;
+            font-weight: 700;
+            border: 1px solid rgba(0,0,0,0.05);
         }
 
-        /* Tweet-like entries */
+        /* ---------- Tweet-like entries (hilo) ---------- */
         .tweet-card {
-            background: white;
-            border-radius: 16px;
+            background: #FFFDFE;
+            border-radius: 14px;
             padding: 14px 18px;
             margin-bottom: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border: 1px solid #F3D9E8;
+            box-shadow: 0 2px 6px rgba(230, 150, 180, 0.10);
+            border: 1px dashed #F6C7DC;
         }
         .tweet-date {
-            color: #B98BC9;
-            font-size: 12px;
-            font-weight: 600;
+            color: #D79BB8;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
         }
 
+        /* ---------- Botones ---------- */
         div.stButton > button {
             border-radius: 14px;
             font-weight: 600;
-            border: none;
+            border: 1.5px solid #F8C7DC;
+            background: #FFF6FA;
+            color: #C2185B;
+        }
+        div.stButton > button:hover {
+            border: 1.5px solid #E0699A;
+            background: #FFEAF3;
+            color: #A8104C;
+        }
+
+        /* Inputs / selects con toque suave */
+        .stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
+            border-radius: 12px !important;
+            border: 1.5px solid #FBD3E4 !important;
+        }
+
+        .kaomoji-empty {
+            text-align: center;
+            font-size: 22px;
+            color: #E0A6C0;
+            margin: 18px 0;
         }
         </style>
         """,
@@ -367,13 +452,29 @@ init_db()
 # SIDEBAR
 # ============================================================
 with st.sidebar:
-    st.markdown("### 🌸 Menú")
-    if st.button("🏠 Inicio", use_container_width=True):
+    st.markdown(
+        """
+        <div style="text-align:center; padding: 6px 0 2px 0;">
+            <div style="font-family:'Caveat',cursive; font-size:26px; color:#E0699A; font-weight:700;">
+                Katsearose's
+            </div>
+            <div style="font-family:'Poppins',sans-serif; font-size:15px; color:#C2185B; letter-spacing:2px;">
+                DREAMSCAPE
+            </div>
+        </div>
+        <div style="text-align:center; color:#F3B6CE; margin: 4px 0 14px 0;">────୨ৎ────</div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("🏠  Home", use_container_width=True):
         goto("home")
-    st.markdown("---")
+    st.markdown("<div style='color:#F6C7DC; text-align:center;'>. . . . . . . . . . .</div>", unsafe_allow_html=True)
     for sec in SECTIONS:
         if st.button(SECTIONS[sec]["label"], use_container_width=True, key=f"nav_{sec}"):
             goto("section", current_section=sec)
+    st.markdown("<div style='color:#F6C7DC; text-align:center;'>. . . . . . . . . . .</div>", unsafe_allow_html=True)
+    if st.button(FAVORITES_LABEL, use_container_width=True):
+        goto("favorites")
     st.markdown("---")
     if github_configured():
         if st.button("☁️ Guardar en GitHub", use_container_width=True):
@@ -389,22 +490,66 @@ with st.sidebar:
 # PÁGINA: HOME
 # ============================================================
 def page_home():
-    st.markdown('<p class="home-title">🌸 Bitácora Otaku 🌸</p>', unsafe_allow_html=True)
-    st.markdown('<p class="home-sub">elige a dónde quieres entrar hoy ✨</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="app-title">{APP_TITLE}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="app-divider">{APP_DIVIDER}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="app-kaomoji">{APP_KAOMOJI_SUB}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="home-sub">elige a dónde quieres entrar hoy {KAOMOJI_SHY}</p>', unsafe_allow_html=True)
 
     cols = st.columns(3)
-    icons = {"BL": "💗", "BOOKS": "📚", "STUDY": "📝"}
+    icons = {"BL": "🪷", "BOOKS": "📚", "STUDY": "📖"}
+    pretty_names = {"BL": "BL", "BOOKS": "BOOKS", "STUDY": "STUDY"}
     for col, sec in zip(cols, SECTIONS):
         with col:
             st.markdown(
                 f"""<div class="home-card">
-                        <div style="font-size:60px">{icons[sec]}</div>
-                        <div style="font-size:22px; font-weight:700; color:#C2185B;">{sec}</div>
+                        <div class="home-card-icon">{icons[sec]}</div>
+                        <div class="home-card-label">⋆.𐙚 ̊ {pretty_names[sec]}</div>
                     </div>""",
                 unsafe_allow_html=True,
             )
             if st.button(f"Entrar a {sec}", key=f"enter_{sec}", use_container_width=True):
                 goto("section", current_section=sec)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(
+        f'<p style="text-align:center; color:#E0A6C0;">{FAVORITES_LABEL}</p>',
+        unsafe_allow_html=True,
+    )
+    if st.button("💗 Ver mis favoritos", use_container_width=False):
+        goto("favorites")
+
+
+# ============================================================
+# PÁGINA: FAVORITES (todos los favoritos de todas las secciones)
+# ============================================================
+def page_favorites():
+    st.markdown(f'<p class="section-header">{FAVORITES_LABEL}</p>', unsafe_allow_html=True)
+    any_fav = False
+    for sec in SECTIONS:
+        rows = [i for i in get_items(sec) if i["favorite"]]
+        if not rows:
+            continue
+        any_fav = True
+        st.markdown(f"#### {SECTIONS[sec]['label']}")
+        folders = get_folders(sec)
+        color_map = {f["id"]: f["color"] for f in folders}
+        for it in rows:
+            score = average_score(it["id"])
+            color = color_map.get(it["folder_id"], "#FFD6E8")
+            c1, c2 = st.columns([5, 1])
+            with c1:
+                st.markdown(
+                    f"""<div class="book-card" style="border-left-color:{color};">
+                            <span class="book-title">{it['title']}</span> <span class="fav-heart">💗</span><br>
+                            <span class="stars">{stars_html(score)}</span> ({score}/5)
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
+            with c2:
+                if st.button("Abrir 📖", key=f"favopen_{sec}_{it['id']}", use_container_width=True):
+                    goto("detail", current_item=it["id"], current_section=sec)
+    if not any_fav:
+        st.markdown(f'<p class="kaomoji-empty">{KAOMOJI_HAPPY}<br>Todavía no tienes favoritos ✨</p>', unsafe_allow_html=True)
 
 
 # ============================================================
@@ -413,7 +558,7 @@ def page_home():
 def page_section():
     sec = st.session_state.get("current_section", "BL")
     info = SECTIONS[sec]
-    st.markdown(f"## {info['label']}")
+    st.markdown(f'<p class="section-header">{info["label"]}</p>', unsafe_allow_html=True)
 
     folders = get_folders(sec)
     folder_names = ["Todas"] + [f["name"] for f in folders]
@@ -424,7 +569,7 @@ def page_section():
     with col_a:
         selected_folder_name = st.selectbox("📁 Filtrar por carpeta/etiqueta", folder_names)
     with col_b:
-        show_only_fav = st.checkbox("💗 Solo favoritos")
+        show_only_fav = st.checkbox(FAVORITES_LABEL)
 
     folder_id = folder_map.get(selected_folder_name) if selected_folder_name != "Todas" else None
     items = get_items(sec, folder_id)
@@ -445,7 +590,7 @@ def page_section():
             submitted = st.form_submit_button("Guardar")
             if submitted and title.strip():
                 add_item(sec, title.strip(), link.strip(), folder_map[folder_choice], favorite)
-                st.success(f"¡'{title}' agregado! 🎉")
+                st.success(f"¡'{title}' agregado! {KAOMOJI_HAPPY}")
                 st.rerun()
 
     with st.expander("🎨 Crear nueva carpeta/etiqueta de color"):
@@ -455,13 +600,16 @@ def page_section():
             fsub = st.form_submit_button("Crear carpeta")
             if fsub and fname.strip():
                 add_folder(sec, fname.strip(), fcolor)
-                st.success("Carpeta creada 🎨")
+                st.success(f"Carpeta creada {KAOMOJI_SHY}")
                 st.rerun()
 
     st.markdown("---")
 
     if not items:
-        st.info("Todavía no hay nada aquí. ¡Agrega tu primer título arriba! 🌸")
+        st.markdown(
+            f'<p class="kaomoji-empty">{KAOMOJI_HAPPY}<br>Todavía no hay nada aquí. ¡Agrega tu primer título arriba!</p>',
+            unsafe_allow_html=True,
+        )
         return
 
     for it in items:
@@ -505,7 +653,7 @@ def page_detail():
     info = SECTIONS[sec]
     score = average_score(item_id)
 
-    st.markdown(f"## {item['title']} {'💗' if item['favorite'] else ''}")
+    st.markdown(f'<p class="section-header">{item["title"]} {"💗" if item["favorite"] else ""}</p>', unsafe_allow_html=True)
     if item["link"]:
         st.markdown(f"[{info['link_label']}]({item['link']})")
     st.markdown(f"### {stars_html(score)}  —  {score}/5 (promedio de {len(get_entries(item_id))} entradas)")
@@ -516,17 +664,20 @@ def page_detail():
         text = st.text_area("¿Qué quieres anotar hoy? (comentario, avance, opinión...)")
         stars = st.slider("Puntuación de esta entrada", 1, 5, 5)
         image = st.file_uploader("Imagen (opcional)", type=["png", "jpg", "jpeg", "gif", "webp"])
-        submit_entry = st.form_submit_button("Publicar 🌸")
+        submit_entry = st.form_submit_button("Publicar 🪷")
         if submit_entry and text.strip():
             add_entry(item_id, text.strip(), image, stars)
-            st.success("¡Entrada publicada!")
+            st.success(f"¡Entrada publicada! {KAOMOJI_SURPRISED}")
             st.rerun()
 
     st.markdown("---")
     st.markdown("### 🧵 Hilo")
     entries = get_entries(item_id)
     if not entries:
-        st.info("Aún no hay entradas. ¡Escribe la primera arriba! ✨")
+        st.markdown(
+            f'<p class="kaomoji-empty">{KAOMOJI_HAPPY}<br>Aún no hay entradas. ¡Escribe la primera arriba!</p>',
+            unsafe_allow_html=True,
+        )
     for e in entries:
         st.markdown(
             f"""<div class="tweet-card">
@@ -554,3 +705,5 @@ elif page == "section":
     page_section()
 elif page == "detail":
     page_detail()
+elif page == "favorites":
+    page_favorites()
