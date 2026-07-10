@@ -5,6 +5,7 @@ hilos tipo tweet, papelera, perfil y dashboard de horarios.
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import sqlite3
 import base64
 import json
@@ -39,18 +40,20 @@ def inject_css():
     st.markdown(
         """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Pinyon+Script&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Pinyon+Script&family=Dancing+Script:wght@600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-        html, body, [class*="css"] { font-family: 'Jost', sans-serif; }
+        html, body, [class*="css"] { font-family: 'Inter', sans-serif; font-weight: 300; }
 
         h1, h2, h3 {
-            font-family: 'Pinyon Script', cursive !important;
-            font-size: 2.6em !important;
-            font-weight: 200 !important;
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.5px;
             color: #7a3b52 !important;
         }
+        h2 { font-size: 1.8em !important; }
+        h3 { font-size: 1.3em !important; }
         .stTabs [data-baseweb="tab-list"] button p {
-            font-family: 'Jost', sans-serif !important;
+            font-family: 'Inter', sans-serif !important;
             font-size: 1.15em !important;
             font-weight: 700 !important;
         }
@@ -63,7 +66,14 @@ def inject_css():
 
         section[data-testid="stSidebar"] {
             background: #fff6fa;
-            border-right: 2px dashed #f3b8d2;
+            border: 2px dashed #f3b8d2;
+            border-radius: 0 32px 32px 0;
+            margin: 14px 0 14px 0;
+            box-shadow: 6px 0 22px rgba(230,170,190,0.18);
+        }
+        section[data-testid="stSidebar"] .profile-card img {
+            filter: grayscale(1);
+            border-radius: 50%;
         }
 
         div.stButton > button {
@@ -109,24 +119,29 @@ def inject_css():
             box-shadow: 0 10px 26px rgba(230,170,190,0.35);
         }
         .plaid-title {
-            font-family: 'Pinyon Script', cursive;
-            font-size: 64px;
+            font-family: 'Dancing Script', cursive;
+            font-weight: 700;
+            font-size: 78px;
             color: #7a3b52;
             margin: 0;
+            text-shadow: 0 2px 0 rgba(255,255,255,0.65), 0 0 18px rgba(255,255,255,0.45);
         }
         .plaid-sep { color: #a9647f; letter-spacing: 2px; margin: 4px 0; }
         .plaid-kaomoji { color: #a9647f; font-size: 15px; }
 
         /* ---- Hero grande del inicio (estilo Lunar Bloom) ---- */
         .hero-banner {
-            border-radius: 32px;
-            padding: 54px 40px;
-            margin-bottom: 28px;
+            border-radius: 32px 32px 0 0;
+            padding: 44px 40px 24px 40px;
+            margin-bottom: 0;
             text-align: center;
             position: relative;
             overflow: hidden;
-            background: linear-gradient(135deg, #ffd6e6 0%, #ffe3ee 40%, #fff0f5 100%);
+            background:
+                radial-gradient(circle, rgba(255,255,255,0.55) 1.5px, transparent 1.5px) 0 0/20px 20px,
+                linear-gradient(135deg, #ffd6e6 0%, #ffe3ee 40%, #fff0f5 100%);
             border: 3px solid #f6c9dc;
+            border-bottom: none;
             box-shadow: 0 14px 34px rgba(230,150,180,0.35);
         }
         .hero-banner::before, .hero-banner::after {
@@ -138,18 +153,31 @@ def inject_css():
         .hero-banner::before { top: -20px; left: -10px; }
         .hero-banner::after { bottom: -30px; right: -10px; }
         .hero-title {
-            font-family: 'Jost', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-weight: 700;
             letter-spacing: 1px;
-            font-size: 72px !important;
+            font-size: 46px !important;
             color: #7a3b52;
             margin: 0;
             position: relative;
             z-index: 1;
         }
         .hero-sep { color: #a9647f; letter-spacing: 3px; margin: 6px 0; position: relative; z-index: 1; }
-        .hero-kaomoji { color: #a9647f; font-size: 17px; position: relative; z-index: 1; }
+        .hero-kaomoji { color: #a9647f; font-size: 17px; position: relative; z-index: 1; margin-bottom: 24px; }
         .hero-tagline { color: #9b4468; font-size: 15px; margin-top: 6px; position: relative; z-index: 1; }
+        .hero-clock-wrap {
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+            background: linear-gradient(135deg, #ffe3ee 0%, #fff0f5 100%);
+            border-left: 3px solid #f6c9dc;
+            border-right: 3px solid #f6c9dc;
+            border-bottom: 3px solid #f6c9dc;
+            border-radius: 0 0 32px 32px;
+            box-shadow: 0 14px 34px rgba(230,150,180,0.25);
+            margin-bottom: 28px;
+            padding: 4px 20px 16px 20px;
+        }
+        .hero-clock-text { color: #9b4468; font-size: 16px; font-weight: 600; letter-spacing: 0.3px; }
 
         /* ---- Sidebar: nav estilo píldora (activo) ---- */
         .nav-pill-active button {
@@ -211,7 +239,7 @@ def inject_css():
             box-shadow: 0 4px 14px rgba(0,0,0,0.06);
             border: 1px solid #f6d9e6;
         }
-        .stat-number { font-size: 30px; font-weight: 700; color: #d9749a; font-family: 'Jost', sans-serif; }
+        .stat-number { font-size: 30px; font-weight: 700; color: #d9749a; font-family: 'Inter', sans-serif; }
         .stat-label { font-size: 13px; color: #a9647f; }
 
         /* ---- Archivador / carpeta tipo binder ---- */
@@ -235,7 +263,7 @@ def inject_css():
             padding: 4px 14px;
             font-size: 16px;
             font-weight: 700;
-            font-family: 'Jost', sans-serif;
+            font-family: 'Inter', sans-serif;
             color: #7a3b52;
             box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         }
@@ -255,7 +283,7 @@ def inject_css():
             box-shadow: 0 3px 10px rgba(0,0,0,0.06);
             border-left: 7px solid #f3b8d2;
         }
-        .book-title { font-weight: 700; font-size: 20px; color: #4A2E4D; font-family: 'Jost', sans-serif; }
+        .book-title { font-weight: 700; font-size: 20px; color: #4A2E4D; font-family: 'Inter', sans-serif; }
         .stars { color: #FFC107; font-size: 15px; }
         .fav-heart { color: #FF4081; font-size: 18px; }
         .tag-chip {
@@ -282,7 +310,7 @@ def inject_css():
             border: 1px solid #f2dbe6;
             margin-bottom: 14px;
         }
-        .dash-title { font-weight: 700; color: #7a3b52; font-size: 20px; margin-bottom: 8px; font-family: 'Jost', sans-serif;}
+        .dash-title { font-weight: 700; color: #7a3b52; font-size: 20px; margin-bottom: 8px; font-family: 'Inter', sans-serif;}
         .badge-chip {
             display:inline-block; background:#f8d7e6; color:#a1315a;
             border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight:700;
@@ -292,10 +320,208 @@ def inject_css():
             background: #fff5f5; border: 1.5px dashed #e6a3a3;
             border-radius: 14px; padding: 10px 16px; margin-bottom: 8px;
         }
+
+        /* ============================================================
+           BENTO GRID — home discontinuo/asimétrico
+           ============================================================ */
+        .bento-card {
+            background: white;
+            border-radius: 20px;
+            padding: 18px 20px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            border: 1px solid #f6d9e6;
+            margin-bottom: 16px;
+        }
+        .bento-card-title {
+            font-weight: 700; font-size: 15px; color: #7a3b52;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;
+        }
+        div[data-testid="stTextInput"] input {
+            border-radius: 20px !important;
+        }
+        .mini-course-card {
+            background: #fff6fa; border-radius: 16px; padding: 10px 12px;
+            border: 1px solid #f6d9e6; margin-bottom: 8px;
+        }
+        .mini-course-title { font-weight: 600; font-size: 14px; color: #4A2E4D; }
+        .mini-course-meta { font-size: 11px; color: #a9647f; }
+        .progress-track {
+            width: 100%; height: 10px; background: #f6e0ea; border-radius: 10px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, #f7b8d2, #d9749a); border-radius: 10px;
+        }
+        .collection-mini {
+            display:flex; align-items:center; gap: 10px; background:#fff6fa;
+            border-radius: 14px; padding: 8px 10px; margin-bottom: 8px; border:1px solid #f6d9e6;
+        }
+        .collection-thumb {
+            width: 42px; height: 42px; border-radius: 10px; object-fit: cover; flex-shrink:0;
+            background: linear-gradient(135deg,#ffe3ee,#fff5f8);
+        }
+        .streak-card {
+            text-align:center; background: linear-gradient(160deg, #fdeaf2, #fff6fa);
+            border-radius: 20px; padding: 20px 16px; border: 1px solid #f6d9e6; margin-bottom: 16px;
+        }
+        .streak-number { font-size: 42px; font-weight: 800; color: #d9749a; line-height:1; }
+        .streak-label { font-size: 12px; color: #a9647f; margin-top:4px; }
+        .pill-cta {
+            display:inline-block; margin-top: 12px; background: linear-gradient(135deg, #f7b8d2, #f592b8);
+            color: white !important; font-weight: 700; font-size: 12px; text-decoration:none;
+            padding: 8px 22px; border-radius: 50px;
+        }
+        .notif-item {
+            display:flex; gap:10px; padding: 9px 0; border-bottom: 1px solid #f6e0ea;
+        }
+        .notif-item:last-child { border-bottom:none; }
+        .notif-icon { font-size: 18px; }
+        .notif-title { font-weight:600; font-size:13px; color:#4A2E4D; }
+        .notif-meta { font-size: 11px; color:#a9647f; }
+        .featured-card {
+            border-radius: 20px; overflow:hidden; border:1px solid #f6d9e6;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.08); margin-bottom:16px; background:white;
+        }
+        .featured-card img { width:100%; display:block; max-height:220px; object-fit:cover; }
+        .featured-body { padding: 12px 16px; }
+        .featured-badge {
+            display:inline-block; background:#ffe3ee; color:#c2185b; font-size:10px; font-weight:700;
+            border-radius: 8px; padding: 2px 8px; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.4px;
+        }
+
+        /* ============================================================
+           STUDY — paleta "soft neutrals / beige aesthetic"
+           ============================================================ */
+        .study-beige { background:#FBF7F1; border-radius: 24px; padding: 18px 18px 4px 18px; }
+        .study-beige .dash-card {
+            background: #F4ECE0 !important; border: 1px solid #E7DBC7 !important;
+        }
+        .study-beige .dash-title {
+            background:#6D5F5A; color:#ffffff !important; margin:-16px -18px 14px -18px;
+            padding: 10px 18px; border-radius: 16px 16px 0 0; text-transform: uppercase;
+            letter-spacing: 0.6px; font-size:13px !important;
+        }
+        .study-beige .badge-chip { background:#e7dbc7; color:#5b4c3a; }
+        .flip-clock-wrap { display:flex; gap:12px; justify-content:center; margin-bottom:16px; }
+        .flip-block {
+            background:#3F3630; color:#fff; border-radius:16px; padding: 14px 22px;
+            min-width: 90px; text-align:center; box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+        }
+        .flip-number { font-size: 40px; font-weight: 800; line-height:1; }
+        .flip-caption { font-size: 10px; letter-spacing: 1px; text-transform:uppercase; opacity:0.75; margin-top:4px;}
+        .cal-wrap { background:#F4ECE0; border:1px solid #E7DBC7; border-radius:16px; padding:14px 16px; margin-bottom:16px; }
+        .cal-head { font-weight:700; color:#5b4c3a; text-transform:uppercase; font-size:13px; margin-bottom:8px; text-align:center; }
+        .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; text-align:center; font-size:12px; }
+        .cal-dow { font-weight:700; color:#8a7a63; padding-bottom:4px; }
+        .cal-day { padding:6px 0; border-radius:8px; color:#5b4c3a; }
+        .cal-day.other { color:#c9bda6; }
+        .cal-day.today { background:#6D5F5A; color:#fff; font-weight:700; }
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_live_clock():
+    """Reloj/fecha en vivo (hora de Perú), pensado para ir justo debajo del hero-banner."""
+    components.html(
+        """
+        <div class="hero-clock-wrap" style="
+            font-family: 'Inter', sans-serif;
+            text-align:center;
+            background: linear-gradient(135deg, #ffe3ee 0%, #fff0f5 100%);
+            border-left: 3px solid #f6c9dc;
+            border-right: 3px solid #f6c9dc;
+            border-bottom: 3px solid #f6c9dc;
+            border-radius: 0 0 32px 32px;
+            padding: 6px 20px 16px 20px;
+            margin: 0;
+        ">
+            <div id="hero-clock-text" style="color:#9b4468; font-size:16px; font-weight:600; letter-spacing:0.3px;">
+                cargando hora... (˶˃﹏˂˶)
+            </div>
+        </div>
+        <style> html, body { margin:0; padding:0; background: transparent; } </style>
+        <script>
+        function updateHeroClock() {
+            const now = new Date();
+            const dOpts = { timeZone: 'America/Lima', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const tOpts = { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            let dateStr = now.toLocaleDateString('es-PE', dOpts);
+            dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+            const timeStr = now.toLocaleTimeString('es-PE', tOpts);
+            const el = document.getElementById('hero-clock-text');
+            if (el) { el.innerHTML = dateStr + '  ⋆  ' + timeStr + ' (Perú)'; }
+        }
+        updateHeroClock();
+        setInterval(updateHeroClock, 1000);
+        </script>
+        """,
+        height=66,
+    )
+
+
+def render_flip_clock():
+    """Reloj tipo 'flip clock' (bloques oscuros, números grandes) — estética beige/planner."""
+    components.html(
+        """
+        <div style="display:flex; gap:12px; justify-content:center;">
+            <div style="background:#3F3630; color:#fff; border-radius:16px; padding:14px 22px; min-width:90px; text-align:center; box-shadow:0 8px 18px rgba(0,0,0,0.18); font-family:'Inter',sans-serif;">
+                <div id="fc-hh" style="font-size:40px; font-weight:800; line-height:1;">--</div>
+                <div style="font-size:10px; letter-spacing:1px; text-transform:uppercase; opacity:0.75; margin-top:4px;" id="fc-ampm">--</div>
+            </div>
+            <div style="background:#3F3630; color:#fff; border-radius:16px; padding:14px 22px; min-width:90px; text-align:center; box-shadow:0 8px 18px rgba(0,0,0,0.18); font-family:'Inter',sans-serif;">
+                <div id="fc-mm" style="font-size:40px; font-weight:800; line-height:1;">--</div>
+                <div style="font-size:10px; letter-spacing:1px; text-transform:uppercase; opacity:0.75; margin-top:4px;" id="fc-day">--</div>
+            </div>
+        </div>
+        <style> html, body { margin:0; padding:0; background:transparent; } </style>
+        <script>
+        function updateFlip() {
+            const now = new Date();
+            const parts = new Intl.DateTimeFormat('es-PE', { timeZone:'America/Lima', hour:'2-digit', minute:'2-digit', hour12:true, weekday:'long' }).formatToParts(now);
+            let hh='--', mm='--', ampm='--', wd='--';
+            parts.forEach(p => {
+                if (p.type==='hour') hh=p.value;
+                if (p.type==='minute') mm=p.value;
+                if (p.type==='dayPeriod') ampm=p.value.toUpperCase();
+                if (p.type==='weekday') wd=p.value.toUpperCase();
+            });
+            document.getElementById('fc-hh').textContent = hh;
+            document.getElementById('fc-mm').textContent = mm;
+            document.getElementById('fc-ampm').textContent = ampm;
+            document.getElementById('fc-day').textContent = wd;
+        }
+        updateFlip();
+        setInterval(updateFlip, 5000);
+        </script>
+        """,
+        height=100,
+    )
+
+
+def render_month_calendar():
+    """Calendario mensual estático (mes actual, hora de Perú), día de hoy resaltado."""
+    import calendar as _cal
+    today = datetime.date.today()
+    cal = _cal.Calendar(firstweekday=6)  # domingo primero, como en la referencia (S M T W T F S)
+    weeks = cal.monthdayscalendar(today.year, today.month)
+    month_name = today.strftime("%B %Y").capitalize()
+    dows = ["S", "M", "T", "W", "T", "F", "S"]
+
+    html = f'<div class="cal-wrap"><div class="cal-head">{month_name}</div><div class="cal-grid">'
+    for d in dows:
+        html += f'<div class="cal-dow">{d}</div>'
+    for week in weeks:
+        for day in week:
+            if day == 0:
+                html += '<div class="cal-day other">·</div>'
+            elif day == today.day:
+                html += f'<div class="cal-day today">{day}</div>'
+            else:
+                html += f'<div class="cal-day">{day}</div>'
+    html += "</div></div>"
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # ============================================================
@@ -468,6 +694,51 @@ def get_items(section, folder_id):
 
 def get_favorites_all():
     return run("SELECT * FROM items WHERE favorite=1 AND trashed=0 ORDER BY title COLLATE NOCASE", fetch=True)
+
+
+def get_recent_items_all(limit=4):
+    """Últimos títulos agregados en cualquier sección — para el módulo 'Nuevo' del home."""
+    return run(
+        "SELECT * FROM items WHERE trashed=0 ORDER BY created_at DESC, id DESC LIMIT ?",
+        (limit,), fetch=True,
+    )
+
+
+def search_items_all(query):
+    like = f"%{query}%"
+    return run(
+        "SELECT * FROM items WHERE trashed=0 AND title LIKE ? ORDER BY title COLLATE NOCASE LIMIT 12",
+        (like,), fetch=True,
+    )
+
+
+def get_recent_activity(limit=5):
+    """Últimas entradas del hilo (de cualquier libro/sección) — para el panel de notificaciones."""
+    return run(
+        "SELECT entries.*, items.title AS item_title, items.section AS section "
+        "FROM entries JOIN items ON entries.item_id = items.id "
+        "WHERE items.trashed=0 ORDER BY entries.id DESC LIMIT ?",
+        (limit,), fetch=True,
+    )
+
+
+def get_streak_days():
+    """Cuenta cuántos días distintos (consecutivos hacia atrás desde hoy) tienen al menos una entrada."""
+    rows = run("SELECT DISTINCT date FROM entries", fetch=True)
+    if not rows:
+        return 0
+    days = set()
+    for r in rows:
+        try:
+            days.add(datetime.datetime.strptime(r["date"][:10], "%Y-%m-%d").date())
+        except Exception:
+            continue
+    streak = 0
+    cursor = datetime.date.today()
+    while cursor in days:
+        streak += 1
+        cursor -= datetime.timedelta(days=1)
+    return streak
 
 
 def toggle_favorite(item_id, current):
@@ -643,7 +914,7 @@ with st.sidebar:
 
     with st.expander("✏️ Editar perfil"):
         new_name = st.text_input("Nombre", value=prof["name"])
-        new_avatar = st.file_uploader("Foto de perfil", type=["png", "jpg", "jpeg", "webp"], key="avatar_up")
+        new_avatar = st.file_uploader("Foto de perfil (admite GIF animado)", type=["png", "jpg", "jpeg", "webp", "gif"], key="avatar_up")
         if st.button("💾 Guardar perfil", use_container_width=True):
             save_profile(new_name, new_avatar)
             st.success("¡Perfil actualizado! (♡ˊ͈ ꒳ ˋ͈)")
@@ -686,77 +957,196 @@ with st.sidebar:
 # PÁGINA: HOME
 # ============================================================
 def page_home():
-    st.markdown(
-        """
-        <div class="hero-banner">
-            <p class="hero-title">Katsearose's Dreamscape ⋆ ̊꩜。</p>
-            <p class="hero-sep">────୨ৎ────</p>
-            <p class="hero-kaomoji">⋆ ̊꩜。՞ ܸ.ˬ.ܸ՞</p>
-            <p class="hero-tagline">presiona un corazoncito para entrar (˶˃˂˶)</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Zona asimétrica de 3 columnas (2fr / 1fr / 1.2fr) — orden discontinuo tipo bento grid
+    left, middle, right = st.columns([2, 1, 1.2])
 
-    # Widgets de estadísticas — para que el inicio no se sienta vacío
-    scols = st.columns(3)
-    for scol, sec in zip(scols, SECTIONS):
-        total = len(get_all_items_section(sec))
-        favs = len([i for i in get_all_items_section(sec) if i["favorite"]])
-        with scol:
+    # ------------------------------------------------------------------
+    # ZONA IZQUIERDA — buscador, banner de bienvenida, "nuevo", progreso
+    # ------------------------------------------------------------------
+    with left:
+        query = st.text_input("Search...", key="home_search", placeholder="🔍 Search...", label_visibility="collapsed")
+        if query.strip():
+            st.markdown('<div class="bento-card"><div class="bento-card-title">Resultados</div>', unsafe_allow_html=True)
+            results = search_items_all(query.strip())
+            if not results:
+                st.caption("Nada por aquí todavía (˶˃˂˶)")
+            for r in results:
+                cc1, cc2 = st.columns([5, 1])
+                with cc1:
+                    st.markdown(f"**{r['title']}** &nbsp; <span class='mini-course-meta'>{r['section']}</span>", unsafe_allow_html=True)
+                with cc2:
+                    if st.button("Abrir", key=f"search_open_{r['id']}", use_container_width=True):
+                        goto("detail", current_item=r["id"], current_section=r["section"])
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown(
+            """
+            <div class="hero-banner">
+                <p class="hero-title">Katsearose's Dreamscape ⋆ ̊꩜。</p>
+                <p class="hero-sep">────୨ৎ────</p>
+                <p class="hero-kaomoji">⋆ ̊꩜。՞ ܸ.ˬ.ܸ՞</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        render_live_clock()
+
+        with st.expander("🖼️ Cambiar las imágenes de portada"):
+            for sec in SECTIONS:
+                up = st.file_uploader(f"Portada para {sec} (admite GIF animado)", type=["png", "jpg", "jpeg", "webp", "gif"], key=f"cover_up_{sec}")
+                if up is not None and st.button(f"Guardar portada de {sec}", key=f"cover_save_{sec}"):
+                    save_section_image(sec, up)
+                    st.success(f"¡Portada de {sec} actualizada! ✨")
+                    st.rerun()
+
+        # Accesos directos a cada sección — la ilustración "sale" ligeramente del marco
+        hcols = st.columns(3)
+        for col, sec in zip(hcols, SECTIONS):
+            with col:
+                st.markdown('<div class="heart-wrap">', unsafe_allow_html=True)
+                cover = get_section_image(sec)
+                if cover:
+                    st.markdown(f'<img class="section-cover" src="data:image/png;base64,{cover}">', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<div class="section-cover-placeholder">{SECTIONS[sec]["emoji"]}</div>', unsafe_allow_html=True)
+                with st.container(key=f"home_heart_{sec}"):
+                    if st.button("💗", key=f"enter_{sec}"):
+                        goto("section", current_section=sec)
+                st.markdown(f'<p class="heart-label">{SECTIONS[sec]["label"]}</p>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown(
+            """
+            <style>
+            .st-key-home_heart_BL button, .st-key-home_heart_BOOKS button, .st-key-home_heart_STUDY button {
+                font-size: 46px !important; padding: 20px 0 !important; width: 100%; min-height: 96px; margin-top: 10px;
+                background: white !important; border-radius: 50% !important;
+                border: 4px solid #f6c9dc !important;
+                box-shadow: 0 8px 0 rgba(246,201,220,0.55), 0 12px 20px rgba(0,0,0,0.08) !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Módulo "Nuevo" (tipo New Courses) — últimos títulos agregados en cualquier sección
+        st.markdown('<div class="bento-card"><div class="bento-card-title">✨ Recién agregado</div>', unsafe_allow_html=True)
+        recent = get_recent_items_all(4)
+        if not recent:
+            st.caption("Todavía no agregaste ningún título (˶˃˂˶)")
+        else:
+            rcols = st.columns(len(recent))
+            for rc, it in zip(rcols, recent):
+                with rc:
+                    st.markdown(
+                        f"""<div class="mini-course-card">
+                                <div class="mini-course-title">{SECTIONS[it['section']]['emoji']} {it['title'][:22]}</div>
+                                <div class="mini-course-meta">{it['section']} · {it['created_at'] or ''}</div>
+                            </div>""",
+                        unsafe_allow_html=True,
+                    )
+                    if st.button("Abrir", key=f"recent_open_{it['id']}", use_container_width=True):
+                        goto("detail", current_item=it["id"], current_section=it["section"])
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Módulo de progreso — total de entradas escritas (analogía a "Total hours watched")
+        total_entries = sum(len(get_entries(i["id"])) for sec in SECTIONS for i in get_all_items_section(sec))
+        goal = max(50, total_entries + 10)
+        pct = int(min(100, round((total_entries / goal) * 100))) if goal else 0
+        st.markdown(
+            f"""
+            <div class="bento-card">
+                <div class="bento-card-title">📈 Total de entradas escritas</div>
+                <div class="progress-track"><div class="progress-fill" style="width:{pct}%;"></div></div>
+                <div style="text-align:right; font-size:12px; color:#a9647f; margin-top:6px;">{total_entries} entradas</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ------------------------------------------------------------------
+    # ZONA CENTRAL — colección de favoritos + racha (analogía a suscripción)
+    # ------------------------------------------------------------------
+    with middle:
+        st.markdown('<div class="bento-card"><div class="bento-card-title">💗 Colección</div>', unsafe_allow_html=True)
+        favs = get_favorites_all()
+        if not favs:
+            st.caption("Sin favoritos aún")
+        for f in favs[:4]:
             st.markdown(
-                f"""<div class="stat-widget">
+                f"""<div class="collection-mini">
+                        <div class="collection-thumb"></div>
+                        <div>
+                            <div class="mini-course-title" style="font-size:13px;">{f['title'][:20]}</div>
+                            <div class="mini-course-meta">{f['section']}</div>
+                        </div>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        streak = get_streak_days()
+        st.markdown(
+            f"""
+            <div class="streak-card">
+                <div class="streak-number">{streak}</div>
+                <div class="streak-label">🔥 días seguidos escribiendo</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        for scol_sec in SECTIONS:
+            total = len(get_all_items_section(scol_sec))
+            st.markdown(
+                f"""<div class="stat-widget" style="margin-bottom:10px;">
                         <div class="stat-number">{total}</div>
-                        <div class="stat-label">{SECTIONS[sec]['emoji']} títulos en {sec}</div>
-                        <div class="stat-number" style="font-size:18px; margin-top:4px;">💗 {favs}</div>
-                        <div class="stat-label">favoritos</div>
+                        <div class="stat-label">{SECTIONS[scol_sec]['emoji']} títulos en {scol_sec}</div>
                     </div>""",
                 unsafe_allow_html=True,
             )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # ------------------------------------------------------------------
+    # ZONA DERECHA — notificaciones/actividad + tarjeta destacada
+    # ------------------------------------------------------------------
+    with right:
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🔔 Actividad reciente</div>', unsafe_allow_html=True)
+        activity = get_recent_activity(5)
+        if not activity:
+            st.caption("Sin actividad todavía")
+        for a in activity:
+            st.markdown(
+                f"""<div class="notif-item">
+                        <div class="notif-icon">{SECTIONS[a['section']]['emoji']}</div>
+                        <div>
+                            <div class="notif-title">{a['item_title'][:26]}</div>
+                            <div class="notif-meta">{a['date']} · {"⭐"*a['stars'] if a['stars'] else ''}</div>
+                        </div>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("🖼️ Cambiar las imágenes de portada"):
-        for sec in SECTIONS:
-            up = st.file_uploader(f"Portada para {sec}", type=["png", "jpg", "jpeg", "webp"], key=f"cover_up_{sec}")
-            if up is not None and st.button(f"Guardar portada de {sec}", key=f"cover_save_{sec}"):
-                save_section_image(sec, up)
-                st.success(f"¡Portada de {sec} actualizada! ✨")
-                st.rerun()
-
-    cols = st.columns(3)
-    for col, sec in zip(cols, SECTIONS):
-        with col:
-            st.markdown('<div class="heart-wrap">', unsafe_allow_html=True)
-            cover = get_section_image(sec)
-            if cover:
-                st.markdown(
-                    f'<img class="section-cover" src="data:image/png;base64,{cover}">',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f'<div class="section-cover-placeholder">{SECTIONS[sec]["emoji"]}</div>',
-                    unsafe_allow_html=True,
-                )
-            with st.container(key=f"home_heart_{sec}"):
-                if st.button("💗", key=f"enter_{sec}"):
-                    goto("section", current_section=sec)
-            st.markdown(f'<p class="heart-label">{SECTIONS[sec]["label"]}</p>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown(
-        """
-        <style>
-        .st-key-home_heart_BL button, .st-key-home_heart_BOOKS button, .st-key-home_heart_STUDY button {
-            font-size: 54px !important; padding: 26px 0 !important; width: 100%; margin-top: 10px;
-            background: white !important; border-radius: 50% !important;
-            border: 3px solid #f6c9dc !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+        # Tarjeta destacada (última entrada con imagen) — analogía al "Video Destacado"
+        featured = next((a for a in get_recent_activity(15) if a["image_b64"]), None)
+        st.markdown('<div class="featured-card">', unsafe_allow_html=True)
+        if featured:
+            st.image(base64.b64decode(featured["image_b64"]))
+            st.markdown(
+                f"""<div class="featured-body">
+                        <span class="featured-badge">Más reciente</span><br>
+                        <b>{featured['item_title']}</b><br>
+                        <span class="mini-course-meta">{featured['date']}</span>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="featured-body"><span class="featured-badge">Destacado</span><br>'
+                'Aún no hay entradas con imagen — ¡sube una en el hilo de algún título! (˶˃˂˶)</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ============================================================
@@ -981,7 +1371,7 @@ def page_detail():
     with st.form("new_entry_form", clear_on_submit=True):
         text = st.text_area("¿Qué quieres anotar hoy?")
         stars = st.slider("Puntuación de esta entrada", 1, 5, 5)
-        image = st.file_uploader("Imagen (opcional)", type=["png", "jpg", "jpeg", "gif", "webp"])
+        image = st.file_uploader("Imagen o GIF (opcional)", type=["png", "jpg", "jpeg", "gif", "webp"])
         if st.form_submit_button("Publicar 🌸") and text.strip():
             add_entry(item_id, text.strip(), image, stars)
             st.success("¡Entrada guardada!")
@@ -1107,6 +1497,14 @@ def render_schedule_block(kind, title):
 
 
 def page_study_dashboard():
+    st.markdown('<div class="study-beige">', unsafe_allow_html=True)
+
+    ccol1, ccol2 = st.columns([1, 1.3])
+    with ccol1:
+        render_flip_clock()
+    with ccol2:
+        render_month_calendar()
+
     col1, col2 = st.columns(2)
     with col1:
         render_schedule_block("colegio", "🏫 Horario del colegio")
@@ -1140,6 +1538,8 @@ def page_study_dashboard():
             save_notes(content)
             st.success("Notas guardadas ✨")
         st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)  # cierre .study-beige
 
 
 # ============================================================
