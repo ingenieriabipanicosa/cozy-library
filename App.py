@@ -73,8 +73,8 @@ def inject_css():
             letter-spacing: -0.5px;
             color: #7a3b52 !important;
         }
-        h2 { font-size: 1.8em !important; }
-        h3 { font-size: 1.3em !important; }
+        h2 { font-size: 2.2em !important; }
+        h3 { font-size: 1.5em !important; }
         .stTabs [data-baseweb="tab-list"] button p {
             font-family: 'Inter', sans-serif !important;
             font-size: 1.15em !important;
@@ -346,8 +346,8 @@ def inject_css():
             background: white;
             border: 2px dashed #d98bad;
             border-radius: 10px;
-            padding: 4px 14px;
-            font-size: 16px;
+            padding: 5px 16px;
+            font-size: 20px;
             font-weight: 700;
             font-family: 'Inter', sans-serif;
             color: #7a3b52;
@@ -369,7 +369,7 @@ def inject_css():
             box-shadow: 0 3px 10px rgba(0,0,0,0.06);
             border-left: 7px solid #f3b8d2;
         }
-        .book-title { font-weight: 700; font-size: 20px; color: #4A2E4D; font-family: 'Inter', sans-serif; }
+        .book-title { font-weight: 700; font-size: 27px; color: #4A2E4D; font-family: 'Inter', sans-serif; }
         .stars { color: #FFC107; font-size: 15px; }
         .fav-heart { color: #FF4081; font-size: 18px; }
         .tag-chip {
@@ -529,7 +529,7 @@ def inject_css():
             box-shadow: 0 3px 10px rgba(0,0,0,0.06);
             border-left: 7px solid #C9B79B;
         }
-        .study-item-title { font-weight: 700; font-size: 19px; color: #4A3B2F; font-family: 'Inter', sans-serif; }
+        .study-item-title { font-weight: 700; font-size: 27px; color: #4A3B2F; font-family: 'Inter', sans-serif; }
 
         /* ---- Lenguajes: galería de tarjetas (imágenes, videos, playlists, archivos) ---- */
         .lang-card {
@@ -1651,33 +1651,37 @@ def page_folder():
     st.markdown(f"## 🎀 {folder_name}")
 
     with st.expander("➕ Agregar nuevo título aquí"):
+        content_type = None
+        if sec == "STUDY":
+            # IMPORTANTE: este selectbox va FUERA del st.form — dentro de un form,
+            # streamlit no vuelve a dibujar la página hasta que envías el formulario,
+            # así que el campo de link/archivo se quedaba "pegado" al tipo anterior.
+            # Al ponerlo aquí afuera, el cambio de tipo se refleja al instante.
+            content_type = st.selectbox(
+                "Tipo de contenido",
+                options=list(STUDY_CONTENT_TYPES.keys()),
+                format_func=lambda k: f"{STUDY_CONTENT_TYPES[k]['emoji']} {STUDY_CONTENT_TYPES[k]['label']}",
+                key=f"content_type_select_{folder_id}",
+            )
+
         with st.form(f"add_item_{folder_id}", clear_on_submit=True):
             title = st.text_input("Título")
             if sec == "STUDY":
-                content_type = st.selectbox(
-                    "Tipo de contenido",
-                    options=list(STUDY_CONTENT_TYPES.keys()),
-                    format_func=lambda k: f"{STUDY_CONTENT_TYPES[k]['emoji']} {STUDY_CONTENT_TYPES[k]['label']}",
-                )
                 needs_file = content_type in ("doc", "image")
-                link_help = {
-                    "video": "Pega aquí el link del video de YouTube",
-                    "playlist": "Pega aquí el link de la lista de reproducción",
-                    "link": "Pega aquí el link de la página",
-                    "doc": "Link opcional (ej: Drive, Notion) — o adjunta el archivo abajo",
-                    "image": "Link opcional — o adjunta la imagen abajo",
-                }[content_type]
-                link = st.text_input(f"🔗 {link_help}")
                 attach = None
+                link = ""
                 if needs_file:
-                    attach = st.file_uploader(
-                        "📎 Adjuntar archivo (imágenes grandes, PDFs, docs, etc.)",
-                        type=None,
-                        key=f"attach_{folder_id}",
-                    )
+                    file_label = "🖼️ Adjuntar imagen" if content_type == "image" else "📎 Adjuntar archivo (PDF, doc, etc.)"
+                    attach = st.file_uploader(file_label, type=None, key=f"attach_{folder_id}")
+                else:
+                    link_help = {
+                        "video": "🔗 Pega aquí el link del video de YouTube",
+                        "playlist": "🔗 Pega aquí el link de la lista de reproducción",
+                        "link": "🔗 Pega aquí el link de la página",
+                    }[content_type]
+                    link = st.text_input(link_help)
                 favorite = st.checkbox("💗 Marcar como importante")
             else:
-                content_type = None
                 attach = None
                 link = st.text_input(info["link_label"])
                 favorite = st.checkbox("💗 Marcar como favorito")
@@ -2074,13 +2078,15 @@ def page_languages():
     selected_tag = st.selectbox("Filtrar por etiqueta", tags, key="lang_tag_filter")
 
     with st.expander("➕ Agregar nueva tarjeta"):
+        # IMPORTANTE: el selector de tipo va FUERA del st.form para que el campo
+        # de abajo (imagen / link / archivo) cambie al instante al elegir otro tipo.
+        ctype = st.selectbox(
+            "Tipo de tarjeta",
+            options=list(LANG_CONTENT_TYPES.keys()),
+            format_func=lambda k: f"{LANG_CONTENT_TYPES[k]['emoji']} {LANG_CONTENT_TYPES[k]['label']}",
+            key="lang_ctype",
+        )
         with st.form("add_lang_card", clear_on_submit=True):
-            ctype = st.selectbox(
-                "Tipo de tarjeta",
-                options=list(LANG_CONTENT_TYPES.keys()),
-                format_func=lambda k: f"{LANG_CONTENT_TYPES[k]['emoji']} {LANG_CONTENT_TYPES[k]['label']}",
-                key="lang_ctype",
-            )
             lcap = st.text_input("Descripción / traducción (opcional)")
             ltag = st.text_input("Etiqueta (ej: Inglés, Francés, Gramática...)")
 
