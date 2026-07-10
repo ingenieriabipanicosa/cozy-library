@@ -34,8 +34,19 @@ SECTIONS = {
 # Tipos de contenido que se pueden archivar dentro de STUDY (ya no es "libros")
 STUDY_CONTENT_TYPES = {
     "video": {"emoji": "📺", "label": "Video de YouTube"},
+    "playlist": {"emoji": "🎵", "label": "Lista de reproducción"},
     "link": {"emoji": "🔗", "label": "Link / Página"},
     "doc": {"emoji": "📄", "label": "Documento"},
+    "image": {"emoji": "🖼️", "label": "Imagen"},
+}
+
+# Tipos de contenido para las tarjetas de Lenguajes
+LANG_CONTENT_TYPES = {
+    "image": {"emoji": "🖼️", "label": "Imagen"},
+    "video": {"emoji": "📺", "label": "Video"},
+    "playlist": {"emoji": "🎵", "label": "Lista de reproducción"},
+    "link": {"emoji": "🔗", "label": "Link / Página"},
+    "file": {"emoji": "📄", "label": "Archivo"},
 }
 
 SOCIAL_PLATFORMS = {
@@ -513,26 +524,52 @@ def inject_css():
         .study-item-card {
             background: #F4ECE0;
             border-radius: 16px;
-            padding: 12px 16px;
+            padding: 14px 18px;
             margin-bottom: 9px;
             box-shadow: 0 3px 10px rgba(0,0,0,0.06);
             border-left: 7px solid #C9B79B;
         }
-        .study-item-title { font-weight: 700; font-size: 17px; color: #4A3B2F; font-family: 'Inter', sans-serif; }
+        .study-item-title { font-weight: 700; font-size: 19px; color: #4A3B2F; font-family: 'Inter', sans-serif; }
 
-        /* ---- Lenguajes: galería de tarjetas para pegar imágenes ---- */
+        /* ---- Lenguajes: galería de tarjetas (imágenes, videos, playlists, archivos) ---- */
         .lang-card {
             background: white; border-radius: 18px; overflow:hidden;
             border: 2px solid #f6d9e6; box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            margin-bottom: 14px;
+            margin-bottom: 16px;
         }
-        .lang-card img { width:100%; display:block; max-height:260px; object-fit:cover; }
-        .lang-card-body { padding: 10px 14px; }
+        .lang-card img { width:100%; display:block; max-height:420px; object-fit:cover; }
+        .lang-card-body { padding: 14px 18px 18px 18px; }
+        .lang-card-title { font-size: 22px !important; font-weight: 700; color:#7a3b52; margin: 0 0 6px 0; }
+        .lang-card-body p { font-size: 17px !important; line-height:1.5; color:#4A3B2F; }
+        .lang-card .tag-chip { font-size: 13px !important; padding: 4px 14px !important; }
+        .lang-card-placeholder {
+            width:100%; aspect-ratio: 4/3; display:flex; align-items:center; justify-content:center;
+            font-size: 64px; background: linear-gradient(135deg, #ffe3ee, #fff5f8);
+        }
+
+        /* ---- "Mis links" — links generales (no asociados a libros), letras grandes ---- */
+        .custom-link-card {
+            background: white; border-radius: 20px; overflow:hidden;
+            border: 2px solid #f6d9e6; box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            padding: 18px 22px; margin-bottom: 16px;
+        }
+        .custom-link-title { font-size: 24px !important; font-weight: 700; color:#7a3b52; margin:0 0 6px 0; }
+        .custom-link-note { font-size: 16px !important; color:#4A3B2F; margin: 6px 0; line-height:1.5; }
+        .custom-link-url {
+            display:inline-block; font-size: 16px !important; font-weight:600;
+            color:#c2185b !important; text-decoration:none !important; word-break: break-all;
+        }
+        .custom-link-url:hover { text-decoration: underline !important; }
+
+        /* ---- Botón de descarga de archivos adjuntos ---- */
+        div[data-testid="stDownloadButton"] button {
+            border-radius: 50px !important;
+            font-weight: 700 !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 def render_live_clock():
     """Reloj/fecha en vivo (hora de Perú), pensado para ir justo debajo del hero-banner."""
@@ -635,7 +672,6 @@ def render_month_calendar():
     html += "</div></div>"
     st.markdown(html, unsafe_allow_html=True)
 
-
 # ============================================================
 # BASE DE DATOS
 # ============================================================
@@ -679,9 +715,17 @@ def migrate_db():
             ("created_at", "TEXT"),
             ("current_chapter", "TEXT"),
             ("content_type", "TEXT"),
+            ("file_b64", "TEXT"),
+            ("file_name", "TEXT"),
         ],
         "profile": [
             ("avatar_b64", "TEXT"),
+        ],
+        "language_cards": [
+            ("content_type", "TEXT"),
+            ("url", "TEXT"),
+            ("file_b64", "TEXT"),
+            ("file_name", "TEXT"),
         ],
     }
 
@@ -707,7 +751,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             section TEXT NOT NULL, title TEXT NOT NULL, link TEXT,
             folder_id INTEGER, favorite INTEGER DEFAULT 0,
-            trashed INTEGER DEFAULT 0, created_at TEXT, content_type TEXT)""")
+            trashed INTEGER DEFAULT 0, created_at TEXT, content_type TEXT,
+            file_b64 TEXT, file_name TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_id INTEGER NOT NULL, date TEXT, text TEXT,
@@ -726,9 +771,13 @@ def init_db():
     run("""CREATE TABLE IF NOT EXISTS home_gallery (
             id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, created_at TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS language_cards (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, tag TEXT, created_at TEXT)""")
+            id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, tag TEXT, created_at TEXT,
+            content_type TEXT, url TEXT, file_b64 TEXT, file_name TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS study_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, minutes INTEGER, created_at TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS custom_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, section TEXT, title TEXT, url TEXT,
+            note TEXT, created_at TEXT)""")
 
     migrate_db()
 
@@ -798,6 +847,20 @@ def delete_gallery_image(img_id):
     run("DELETE FROM home_gallery WHERE id=?", (img_id,))
 
 
+# ---------- Mis links (links generales, NO asociados a libros) ----------
+def get_custom_links(section):
+    return run("SELECT * FROM custom_links WHERE section=? ORDER BY id DESC", (section,), fetch=True)
+
+
+def add_custom_link(section, title, url, note):
+    run("INSERT INTO custom_links (section, title, url, note, created_at) VALUES (?,?,?,?,?)",
+        (section, title, url, note, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def delete_custom_link(link_id):
+    run("DELETE FROM custom_links WHERE id=?", (link_id,))
+
+
 # ---------- Folders (archivadores) ----------
 def get_folders(section):
     return run("SELECT * FROM folders WHERE section=? ORDER BY name", (section,), fetch=True)
@@ -831,9 +894,11 @@ def get_all_items_section(section):
 
 
 # ---------- Items ----------
-def add_item(section, title, link, folder_id, favorite, content_type=None):
-    run("INSERT INTO items (section, title, link, folder_id, favorite, trashed, created_at, content_type) VALUES (?,?,?,?,?,0,?,?)",
-        (section, title, link, folder_id, int(favorite), datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), content_type))
+def add_item(section, title, link, folder_id, favorite, content_type=None, file_b64=None, file_name=None):
+    run("""INSERT INTO items (section, title, link, folder_id, favorite, trashed, created_at,
+            content_type, file_b64, file_name) VALUES (?,?,?,?,?,0,?,?,?,?)""",
+        (section, title, link, folder_id, int(favorite),
+         datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), content_type, file_b64, file_name))
 
 
 def get_items(section, folder_id):
@@ -994,7 +1059,7 @@ def save_notes(content):
     run("UPDATE study_notes SET content=? WHERE id=1", (content,))
 
 
-# ---------- Lenguajes (hoja vinculada a STUDY, con tarjetas de imágenes) ----------
+# ---------- Lenguajes (hoja vinculada a STUDY, con tarjetas de imágenes/videos/archivos) ----------
 def get_language_cards(tag=None):
     if tag and tag != "Todas":
         return run("SELECT * FROM language_cards WHERE tag=? ORDER BY id DESC", (tag,), fetch=True)
@@ -1006,15 +1071,21 @@ def get_language_tags():
     return [r["tag"] for r in rows] if rows else []
 
 
-def add_language_card(image_file, caption, tag):
+def add_language_card(image_file, caption, tag, content_type="image", url=None, attach_file=None):
     b64 = base64.b64encode(image_file.read()).decode("utf-8") if image_file is not None else None
-    run("INSERT INTO language_cards (image_b64, caption, tag, created_at) VALUES (?,?,?,?)",
-        (b64, caption, tag, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+    file_b64 = None
+    file_name = None
+    if attach_file is not None:
+        file_b64 = base64.b64encode(attach_file.read()).decode("utf-8")
+        file_name = attach_file.name
+    run("""INSERT INTO language_cards (image_b64, caption, tag, created_at, content_type, url, file_b64, file_name)
+           VALUES (?,?,?,?,?,?,?,?)""",
+        (b64, caption, tag, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+         content_type, url, file_b64, file_name))
 
 
 def delete_language_card(card_id):
     run("DELETE FROM language_cards WHERE id=?", (card_id,))
-
 
 # ============================================================
 # GITHUB SYNC (opcional, vía st.secrets)
@@ -1141,7 +1212,6 @@ with st.sidebar:
             "💡 Para persistencia en GitHub agrega en `.streamlit/secrets.toml`:\n\n"
             "```\nGITHUB_TOKEN = \"...\"\nGITHUB_REPO = \"usuario/repo\"\nGITHUB_DB_PATH = \"data/otaku_bitacora.db\"\n```"
         )
-
 
 # ============================================================
 # PÁGINA: HOME
@@ -1378,7 +1448,6 @@ def page_home():
             st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-
 # ============================================================
 # PÁGINA: SECCIÓN → grid de archivadores (carpetas)
 # ============================================================
@@ -1397,7 +1466,7 @@ def page_section():
     )
 
     if sec == "STUDY":
-        st.caption("📁 Aquí guardas videos, links y documentos de preu — organizados por etiqueta.")
+        st.caption("📁 Aquí guardas videos, listas de reproducción, links y documentos de preu — organizados por etiqueta.")
         st.markdown(
             '¿Buscas tarjetas de idiomas? Ve a la hoja <b>🌐 Lenguajes</b> desde el menú lateral.',
             unsafe_allow_html=True,
@@ -1496,23 +1565,42 @@ def render_section_favorites(sec):
 
 
 def render_links_list(sec):
-    """Reúne en un solo lugar todos los enlaces guardados (ej: 'donde lo leo') de la sección,
-    para que no se pierdan entre tantos títulos."""
-    items = [i for i in get_all_items_section(sec) if i["link"]]
-    if not items:
-        st.info("Todavía no guardaste ningún link (˶˃˂˶) — agrégalo al crear o editar un título.")
+    """🔗 Mis links — links SUELTOS que quieres guardar y que NO están asociados a
+    ningún título/libro (ej: sitios de referencia, blogs, tiendas, foros, etc.).
+    Letras grandes, igual que en la hoja de Lenguajes."""
+    st.caption("Guarda aquí links de sitios que no están relacionados a tus títulos de BL — blogs, tiendas, foros, lo que sea ✨")
+
+    with st.expander("➕ Agregar nuevo link"):
+        with st.form(f"add_customlink_{sec}", clear_on_submit=True):
+            ltitle = st.text_input("Nombre del sitio")
+            lurl = st.text_input("URL (https://...)")
+            lnote = st.text_area("Nota (opcional)", height=80)
+            if st.form_submit_button("Guardar 💾") and ltitle.strip() and lurl.strip():
+                add_custom_link(sec, ltitle.strip(), lurl.strip(), lnote.strip())
+                st.success("¡Link guardado! ✨")
+                st.rerun()
+
+    st.markdown("---")
+    links = get_custom_links(sec)
+    if not links:
+        st.info("Todavía no guardaste ningún link suelto (˶˃˂˶) ¡agrega el primero arriba!")
         return
-    for it in items:
-        color = it["folder_color"] or "#f3b8d2"
-        heart = '<span class="fav-heart">💗</span>' if it["favorite"] else ""
-        st.markdown(
-            f"""<div class="book-card" style="border-left-color:{color};">
-                    <span class="book-title">{it['title']}</span> {heart}
-                    <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
-                    <a href="{it['link']}" target="_blank">🔗 {it['link']}</a>
-                </div>""",
-            unsafe_allow_html=True,
-        )
+    for lk in links:
+        c1, c2 = st.columns([6, 1])
+        with c1:
+            note_html = f'<p class="custom-link-note">{lk["note"]}</p>' if lk["note"] else ""
+            st.markdown(
+                f"""<div class="custom-link-card">
+                        <p class="custom-link-title">🔗 {lk['title']}</p>
+                        <a class="custom-link-url" href="{lk['url']}" target="_blank">{lk['url']}</a>
+                        {note_html}
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            if st.button("🗑️", key=f"delcustomlink_{lk['id']}", use_container_width=True):
+                delete_custom_link(lk["id"])
+                st.rerun()
 
 
 def render_archivadores(sec, info):
@@ -1521,7 +1609,7 @@ def render_archivadores(sec, info):
 
     with st.expander(f"🎀 Crear nueva {folder_word}"):
         with st.form(f"add_folder_{sec}", clear_on_submit=True):
-            placeholder = "ej: YouTube preu, Links preu, Documentos..." if sec == "STUDY" else "ej: Yaoi, Manhwa, Física..."
+            placeholder = "ej: YouTube preu, Playlists, Links preu, Documentos..." if sec == "STUDY" else "ej: Yaoi, Manhwa, Física..."
             fname = st.text_input(f"Nombre de la {folder_word}", placeholder=placeholder)
             fcolor = st.color_picker("Color de tapa", DEFAULT_COLORS[len(folders) % len(DEFAULT_COLORS)])
             if st.form_submit_button("Crear 🎀") and fname.strip():
@@ -1547,7 +1635,6 @@ def render_archivadores(sec, info):
             if st.button("Abrir 📖", key=f"open_folder_{f['id']}", use_container_width=True):
                 goto("folder", current_section=sec, current_folder=f["id"], current_folder_name=f["name"])
 
-
 # ============================================================
 # PÁGINA: dentro de un archivador → lista alfabética de libros / contenidos
 # ============================================================
@@ -1572,14 +1659,35 @@ def page_folder():
                     options=list(STUDY_CONTENT_TYPES.keys()),
                     format_func=lambda k: f"{STUDY_CONTENT_TYPES[k]['emoji']} {STUDY_CONTENT_TYPES[k]['label']}",
                 )
-                link = st.text_input("🔗 Link (YouTube, Drive, página, etc.)")
+                needs_file = content_type in ("doc", "image")
+                link_help = {
+                    "video": "Pega aquí el link del video de YouTube",
+                    "playlist": "Pega aquí el link de la lista de reproducción",
+                    "link": "Pega aquí el link de la página",
+                    "doc": "Link opcional (ej: Drive, Notion) — o adjunta el archivo abajo",
+                    "image": "Link opcional — o adjunta la imagen abajo",
+                }[content_type]
+                link = st.text_input(f"🔗 {link_help}")
+                attach = None
+                if needs_file:
+                    attach = st.file_uploader(
+                        "📎 Adjuntar archivo (imágenes grandes, PDFs, docs, etc.)",
+                        type=None,
+                        key=f"attach_{folder_id}",
+                    )
                 favorite = st.checkbox("💗 Marcar como importante")
             else:
                 content_type = None
+                attach = None
                 link = st.text_input(info["link_label"])
                 favorite = st.checkbox("💗 Marcar como favorito")
             if st.form_submit_button("Guardar 💾") and title.strip():
-                add_item(sec, title.strip(), link.strip(), folder_id, favorite, content_type)
+                file_b64 = None
+                file_name = None
+                if attach is not None:
+                    file_b64 = base64.b64encode(attach.read()).decode("utf-8")
+                    file_name = attach.name
+                add_item(sec, title.strip(), link.strip(), folder_id, favorite, content_type, file_b64, file_name)
                 st.success("¡Guardado! (♡ˊ͈ ꒳ ˋ͈)")
                 st.rerun()
 
@@ -1602,8 +1710,18 @@ def page_folder():
                         </div>""",
                     unsafe_allow_html=True,
                 )
+                if it["content_type"] == "image" and it["file_b64"]:
+                    st.image(base64.b64decode(it["file_b64"]), use_container_width=True)
                 if it["link"]:
                     st.markdown(f"[🔗 Abrir enlace]({it['link']})")
+                if it["file_b64"] and it["content_type"] != "image":
+                    st.download_button(
+                        "📎 Descargar archivo adjunto",
+                        data=base64.b64decode(it["file_b64"]),
+                        file_name=it["file_name"] or "archivo",
+                        key=f"dlfolder_{it['id']}",
+                        use_container_width=True,
+                    )
             else:
                 score = average_score(it["id"])
                 st.markdown(
@@ -1624,7 +1742,6 @@ def page_folder():
                 soft_delete_item(it["id"])
                 st.success("Movido a la papelera 🗑️")
                 st.rerun()
-
 
 # ============================================================
 # PÁGINA: DETALLE (hilo tipo tweets)
@@ -1652,6 +1769,17 @@ def page_detail():
 
     if item["link"]:
         st.markdown(f"[{info['link_label']}]({item['link']})")
+
+    if is_study:
+        if item["content_type"] == "image" and item["file_b64"]:
+            st.image(base64.b64decode(item["file_b64"]), use_container_width=True)
+        elif item["file_b64"]:
+            st.download_button(
+                "📎 Descargar archivo adjunto",
+                data=base64.b64decode(item["file_b64"]),
+                file_name=item["file_name"] or "archivo",
+                use_container_width=True,
+            )
 
     if not is_study:
         score = average_score(item_id)
@@ -1780,7 +1908,6 @@ def page_trash():
                 hard_delete_item(it["id"])
                 st.warning("Eliminado definitivamente.")
                 st.rerun()
-
 
 # ============================================================
 # PÁGINA: STUDY DASHBOARD (horarios + to-do + notas)
@@ -1926,10 +2053,10 @@ def page_study_dashboard():
 
     st.markdown("</div>", unsafe_allow_html=True)  # cierre .study-beige
 
-
 # ============================================================
 # PÁGINA: LENGUAJES (hoja vinculada a STUDY, no anidada dentro de ella)
-# Galería de tarjetas de imágenes para repasar vocabulario / gramática, etc.
+# Galería de tarjetas para repasar vocabulario / gramática, guardar videos,
+# listas de reproducción, imágenes grandes y archivos adjuntos.
 # ============================================================
 def page_languages():
     st.markdown(
@@ -1941,20 +2068,47 @@ def page_languages():
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Vinculada a STUDY, pero con su propio espacio — pega aquí imágenes para repasar (vocabulario, gramática, apuntes, etc.)")
+    st.caption("Vinculada a STUDY, pero con su propio espacio — guarda aquí imágenes, videos, listas de reproducción, links y archivos para repasar (vocabulario, gramática, apuntes, etc.)")
 
     tags = ["Todas"] + get_language_tags()
     selected_tag = st.selectbox("Filtrar por etiqueta", tags, key="lang_tag_filter")
 
     with st.expander("➕ Agregar nueva tarjeta"):
         with st.form("add_lang_card", clear_on_submit=True):
-            limg = st.file_uploader("Imagen (vocabulario, apuntes, captura, etc.)", type=["png", "jpg", "jpeg", "webp", "gif"])
+            ctype = st.selectbox(
+                "Tipo de tarjeta",
+                options=list(LANG_CONTENT_TYPES.keys()),
+                format_func=lambda k: f"{LANG_CONTENT_TYPES[k]['emoji']} {LANG_CONTENT_TYPES[k]['label']}",
+                key="lang_ctype",
+            )
             lcap = st.text_input("Descripción / traducción (opcional)")
             ltag = st.text_input("Etiqueta (ej: Inglés, Francés, Gramática...)")
-            if st.form_submit_button("Guardar 💾") and limg is not None:
-                add_language_card(limg, lcap.strip(), ltag.strip() or "General")
-                st.success("¡Tarjeta agregada! ✨")
-                st.rerun()
+
+            limg = None
+            lurl = None
+            lattach = None
+            if ctype == "image":
+                limg = st.file_uploader("Imagen (vocabulario, apuntes, captura, etc.)", type=["png", "jpg", "jpeg", "webp", "gif"])
+            elif ctype in ("video", "playlist", "link"):
+                lurl = st.text_input("🔗 URL (link del video, playlist o página)")
+                limg = st.file_uploader("Miniatura opcional", type=["png", "jpg", "jpeg", "webp", "gif"], key="lang_thumb")
+            elif ctype == "file":
+                lattach = st.file_uploader("📎 Archivo a adjuntar (PDF, doc, etc.)", type=None, key="lang_file")
+                lurl = st.text_input("🔗 Link opcional (Drive, Notion, etc.)")
+
+            submitted = st.form_submit_button("Guardar 💾")
+            if submitted:
+                valid = (ctype == "image" and limg is not None) or \
+                        (ctype in ("video", "playlist", "link") and lurl and lurl.strip()) or \
+                        (ctype == "file" and lattach is not None)
+                if valid:
+                    add_language_card(limg, lcap.strip(), ltag.strip() or "General",
+                                       content_type=ctype, url=(lurl.strip() if lurl else None),
+                                       attach_file=lattach)
+                    st.success("¡Tarjeta agregada! ✨")
+                    st.rerun()
+                else:
+                    st.warning("Falta la imagen, el link o el archivo según el tipo elegido (˶˃˂˶)")
 
     st.markdown("---")
     cards = get_language_cards(selected_tag)
@@ -1962,18 +2116,33 @@ def page_languages():
         st.info("Todavía no hay tarjetas aquí (˶˃˂˶) ¡agrega la primera arriba!")
         return
 
-    cols = st.columns(3)
+    cols = st.columns(2)
     for i, card in enumerate(cards):
-        with cols[i % 3]:
+        ctype = card["content_type"] or "image"
+        meta = LANG_CONTENT_TYPES.get(ctype, {"emoji": "🗂️", "label": "Tarjeta"})
+        with cols[i % 2]:
             st.markdown('<div class="lang-card">', unsafe_allow_html=True)
             if card["image_b64"]:
                 st.image(base64.b64decode(card["image_b64"]), use_container_width=True)
+            elif ctype != "file":
+                st.markdown(f'<div class="lang-card-placeholder">{meta["emoji"]}</div>', unsafe_allow_html=True)
             st.markdown('<div class="lang-card-body">', unsafe_allow_html=True)
+            st.markdown(f'<p class="lang-card-title">{meta["emoji"]} {meta["label"]}</p>', unsafe_allow_html=True)
             if card["tag"]:
                 st.markdown(f'<span class="tag-chip" style="background:#d9749a;">{card["tag"]}</span>', unsafe_allow_html=True)
             if card["caption"]:
                 st.markdown(f"<p>{card['caption']}</p>", unsafe_allow_html=True)
             st.markdown("</div></div>", unsafe_allow_html=True)
+            if card["url"]:
+                st.markdown(f"[🔗 Abrir enlace]({card['url']})")
+            if card["file_b64"]:
+                st.download_button(
+                    "📎 Descargar archivo",
+                    data=base64.b64decode(card["file_b64"]),
+                    file_name=card["file_name"] or "archivo",
+                    key=f"dllang_{card['id']}",
+                    use_container_width=True,
+                )
             if st.button("🗑️ Eliminar", key=f"dellang_{card['id']}", use_container_width=True):
                 delete_language_card(card["id"])
                 st.rerun()
