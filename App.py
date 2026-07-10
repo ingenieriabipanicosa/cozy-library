@@ -101,6 +101,47 @@ def inject_css():
         .plaid-sep { color: #a9647f; letter-spacing: 2px; margin: 4px 0; }
         .plaid-kaomoji { color: #a9647f; font-size: 15px; }
 
+        /* ---- Hero grande del inicio (estilo Lunar Bloom) ---- */
+        .hero-banner {
+            border-radius: 32px;
+            padding: 54px 40px;
+            margin-bottom: 28px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #ffd6e6 0%, #ffe3ee 40%, #fff0f5 100%);
+            border: 3px solid #f6c9dc;
+            box-shadow: 0 14px 34px rgba(230,150,180,0.35);
+        }
+        .hero-banner::before, .hero-banner::after {
+            content: "✿";
+            position: absolute;
+            color: rgba(255,255,255,0.6);
+            font-size: 90px;
+        }
+        .hero-banner::before { top: -20px; left: -10px; }
+        .hero-banner::after { bottom: -30px; right: -10px; }
+        .hero-title {
+            font-family: 'Caveat', cursive;
+            font-size: 58px;
+            color: #7a3b52;
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-sep { color: #a9647f; letter-spacing: 3px; margin: 6px 0; position: relative; z-index: 1; }
+        .hero-kaomoji { color: #a9647f; font-size: 17px; position: relative; z-index: 1; }
+        .hero-tagline { color: #9b4468; font-size: 15px; margin-top: 6px; position: relative; z-index: 1; }
+
+        /* ---- Sidebar: nav estilo píldora (activo) ---- */
+        .nav-pill-active button {
+            background: linear-gradient(135deg, #f7b8d2, #f592b8) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 50px !important;
+            font-weight: 700 !important;
+        }
+
         /* ---- Botones corazón del home ---- */
         .heart-wrap { text-align: center; }
         .heart-label {
@@ -196,7 +237,10 @@ def inject_css():
 # ============================================================
 # BASE DE DATOS
 # ============================================================
+@st.cache_resource
 def get_conn():
+    # Conexión única reutilizada durante toda la sesión del servidor:
+    # abrir/cerrar el archivo en cada consulta era lo que hacía sentir la app lenta.
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
@@ -210,7 +254,6 @@ def run(sql, params=(), fetch=False, one=False):
     if fetch:
         data = c.fetchone() if one else c.fetchall()
     conn.commit()
-    conn.close()
     return data
 
 
@@ -232,6 +275,7 @@ def migrate_db():
             ("link", "TEXT"),
             ("folder_id", "INTEGER"),
             ("created_at", "TEXT"),
+            ("current_chapter", "TEXT"),
         ],
         "profile": [
             ("avatar_b64", "TEXT"),
@@ -248,7 +292,6 @@ def migrate_db():
                 c.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
 
     conn.commit()
-    conn.close()
 
 
 def init_db():
@@ -309,9 +352,27 @@ def add_folder(section, name, color):
     run("INSERT INTO folders (section, name, color) VALUES (?,?,?)", (section, name, color))
 
 
-def folder_item_count(folder_id):
-    r = run("SELECT COUNT(*) n FROM items WHERE folder_id=? AND trashed=0", (folder_id,), fetch=True, one=True)
-    return r["n"] if r else 0
+def folder_item_counts(section):
+    """Cuenta títulos por carpeta en UNA sola consulta (antes se hacía una por carpeta)."""
+    rows = run(
+        "SELECT folder_id, COUNT(*) n FROM items WHERE section=? AND trashed=0 GROUP BY folder_id",
+        (section,), fetch=True,
+    )
+    return {r["folder_id"]: r["n"] for r in rows} if rows else {}
+
+
+def save_chapter(item_id, chapter_text):
+    run("UPDATE items SET current_chapter=? WHERE id=?", (chapter_text, item_id))
+
+
+def get_all_items_section(section):
+    """Todos los títulos de una sección (todas las carpetas), en orden alfabético — para la hoja 'Lista completa'."""
+    return run(
+        "SELECT items.*, folders.name AS folder_name, folders.color AS folder_color "
+        "FROM items LEFT JOIN folders ON items.folder_id = folders.id "
+        "WHERE items.section=? AND items.trashed=0 ORDER BY items.title COLLATE NOCASE",
+        (section,), fetch=True,
+    )
 
 
 # ---------- Items ----------
@@ -509,15 +570,39 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    if st.button("🏠 Inicio", use_container_width=True):
-        goto("home")
+    current_page = st.session_state.get("page")
+    current_sec = st.session_state.get("current_section")
+
+    with st.container(key=f"pill_home_{'on' if current_page=='home' else 'off'}"):
+        if st.button("🏠 Inicio", use_container_width=True, key="nav_home"):
+            goto("home")
     for sec in SECTIONS:
-        if st.button(SECTIONS[sec]["label"], use_container_width=True, key=f"nav_{sec}"):
-            goto("section", current_section=sec)
-    if st.button("͙֒ FAVORITES ⋆.˚", use_container_width=True):
-        goto("favorites")
-    if st.button("🗑️ Papelera", use_container_width=True):
-        goto("trash")
+        is_active = current_page in ("section", "folder", "detail") and current_sec == sec
+        with st.container(key=f"pill_{sec}_{'on' if is_active else 'off'}"):
+            if st.button(SECTIONS[sec]["label"], use_container_width=True, key=f"nav_{sec}"):
+                goto("section", current_section=sec)
+    with st.container(key=f"pill_fav_{'on' if current_page=='favorites' else 'off'}"):
+        if st.button("͙֒ FAVORITES ⋆.˚", use_container_width=True, key="nav_fav"):
+            goto("favorites")
+    with st.container(key=f"pill_trash_{'on' if current_page=='trash' else 'off'}"):
+        if st.button("🗑️ Papelera", use_container_width=True, key="nav_trash"):
+            goto("trash")
+
+    st.markdown(
+        """
+        <style>
+        [class*="st-key-pill_"][class*="_on"] button {
+            background: linear-gradient(135deg, #f7b8d2, #f592b8) !important;
+            color: white !important; border: none !important;
+            border-radius: 50px !important; font-weight: 700 !important;
+        }
+        [class*="st-key-pill_"][class*="_off"] button {
+            background: white !important; border-radius: 50px !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown("---")
     if github_configured():
@@ -537,16 +622,13 @@ with st.sidebar:
 def page_home():
     st.markdown(
         """
-        <div class="plaid-banner">
-            <p class="plaid-title">Katsearose's Dreamscape ⋆ ̊꩜。</p>
-            <p class="plaid-sep">────୨ৎ────</p>
-            <p class="plaid-kaomoji">⋆ ̊꩜。՞ ܸ.ˬ.ܸ՞</p>
+        <div class="hero-banner">
+            <p class="hero-title">Katsearose's Dreamscape ⋆ ̊꩜。</p>
+            <p class="hero-sep">────୨ৎ────</p>
+            <p class="hero-kaomoji">⋆ ̊꩜。՞ ܸ.ˬ.ܸ՞</p>
+            <p class="hero-tagline">presiona un corazoncito para entrar (˶˃˂˶)</p>
         </div>
         """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p style="text-align:center; color:#a9647f;">presiona un corazoncito para entrar (˶˃˂˶)</p>',
         unsafe_allow_html=True,
     )
 
@@ -580,16 +662,82 @@ def page_home():
 def page_section():
     sec = st.session_state.get("current_section", "BL")
     info = SECTIONS[sec]
-    st.markdown(f"## {info['label']}")
 
+    st.markdown(
+        f"""
+        <div class="plaid-banner">
+            <p class="plaid-title">{info['label']}</p>
+            <p class="plaid-sep">────୨ৎ────</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    tab_labels = ["📂 Archivadores", "📋 Lista completa", "💗 Favoritos"]
     if sec == "STUDY":
-        tab_arch, tab_dash = st.tabs(["📂 Mis archivadores", "🗓️ Dashboard / Planner"])
-        with tab_arch:
-            render_archivadores(sec, info)
-        with tab_dash:
-            page_study_dashboard()
-    else:
+        tab_labels.append("🗓️ Dashboard / Planner")
+
+    tabs = st.tabs(tab_labels)
+    with tabs[0]:
         render_archivadores(sec, info)
+    with tabs[1]:
+        render_full_list(sec)
+    with tabs[2]:
+        render_section_favorites(sec)
+    if sec == "STUDY":
+        with tabs[3]:
+            page_study_dashboard()
+
+
+def render_full_list(sec):
+    """Hoja 2: TODOS los títulos de la sección en una sola lista alfabética,
+    con un punto de color mostrando a qué archivador/etiqueta pertenece."""
+    items = get_all_items_section(sec)
+    if not items:
+        st.info("Todavía no hay títulos en esta sección (˶˃˂˶)")
+        return
+    for it in items:
+        score = average_score(it["id"])
+        heart = '<span class="fav-heart">💗</span>' if it["favorite"] else ""
+        color = it["folder_color"] or "#f3b8d2"
+        c1, c2 = st.columns([6, 1])
+        with c1:
+            st.markdown(
+                f"""<div class="book-card" style="border-left-color:{color};">
+                        <span class="book-title">{it['title']}</span> {heart}
+                        <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
+                        <span class="stars">{stars_html(score)}</span> ({score}/5)
+                        {f'&nbsp;&nbsp;🔖 {it["current_chapter"]}' if it["current_chapter"] else ''}
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            if st.button("Abrir", key=f"fulllist_open_{it['id']}", use_container_width=True):
+                goto("detail", current_item=it["id"], current_section=sec)
+
+
+def render_section_favorites(sec):
+    """Hoja 3: solo los favoritos de ESTA sección."""
+    items = [i for i in get_all_items_section(sec) if i["favorite"]]
+    if not items:
+        st.info("Aún no marcaste favoritos en esta sección (˶˃˂˶)")
+        return
+    for it in items:
+        score = average_score(it["id"])
+        color = it["folder_color"] or "#f3b8d2"
+        c1, c2 = st.columns([6, 1])
+        with c1:
+            st.markdown(
+                f"""<div class="book-card" style="border-left-color:{color};">
+                        <span class="book-title">{it['title']}</span> <span class="fav-heart">💗</span>
+                        <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
+                        <span class="stars">{stars_html(score)}</span> ({score}/5)
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            if st.button("Abrir", key=f"favsec_open_{it['id']}", use_container_width=True):
+                goto("detail", current_item=it["id"], current_section=sec)
 
 
 def render_archivadores(sec, info):
@@ -604,9 +752,10 @@ def render_archivadores(sec, info):
                 st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
+    counts = folder_item_counts(sec)
     cols = st.columns(3)
     for i, f in enumerate(folders):
-        n = folder_item_count(f["id"])
+        n = counts.get(f["id"], 0)
         with cols[i % 3]:
             st.markdown(
                 f"""
@@ -704,6 +853,25 @@ def page_detail():
     if item["link"]:
         st.markdown(f"[{info['link_label']}]({item['link']})")
     st.markdown(f"### {stars_html(score)}  —  {score}/5 · {len(get_entries(item_id))} entradas")
+
+    st.markdown("---")
+    st.markdown("### 🔖 ¿Hasta dónde te quedaste?")
+    cc1, cc2 = st.columns([4, 1])
+    with cc1:
+        chapter_val = st.text_input(
+            "Capítulo / página / episodio actual",
+            value=item["current_chapter"] or "",
+            key=f"chapter_{item_id}",
+            placeholder="ej: Capítulo 34, o Tomo 2 - pág. 120",
+            label_visibility="collapsed",
+        )
+    with cc2:
+        if st.button("💾 Guardar", key=f"savechap_{item_id}", use_container_width=True):
+            save_chapter(item_id, chapter_val.strip())
+            st.toast("¡Guardado! 🔖")
+            st.rerun()
+    if item["current_chapter"]:
+        st.caption(f"📍 Vas por: **{item['current_chapter']}**")
 
     st.markdown("---")
     st.markdown("### ✏️ Nueva entrada")
