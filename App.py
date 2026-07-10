@@ -45,7 +45,7 @@ def inject_css():
 
         .stApp {
             background:
-                radial-gradient(circle, #f9d6e3 1px, transparent 1px) 0 0/26px 26px,
+                radial-gradient(circle, #f9d6e3 1px, transparent 1px) 0 0/26px 50px,
                 #ffffff;
         }
 
