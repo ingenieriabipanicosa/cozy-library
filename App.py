@@ -1,5 +1,7 @@
 """
 🌸 Katsearose's Dreamscape 🌸
+Bitácora otaku en Streamlit: BL, Books y Study con archivadores,
+hilos tipo tweet, papelera, perfil y dashboard de horarios.
 """
 
 import streamlit as st
@@ -58,6 +60,7 @@ def inject_css():
 
         .stApp {
             background:
+                radial-gradient(circle, #ffe9f2 1px, transparent 1px) 10px 24px/48px 48px,
                 radial-gradient(circle, #f9d6e3 1px, transparent 1px) 0 0/26px 26px,
                 #ffffff;
         }
@@ -86,22 +89,56 @@ def inject_css():
         }
         div.stButton > button:active { transform: scale(0.90) !important; box-shadow: none !important; }
 
+        /* ---- Decoración: divisores tipo lazo ---- */
+        .bow-divider {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            margin: 10px 0 14px 0; color: #e6a9c4;
+        }
+        .bow-divider::before, .bow-divider::after {
+            content: ""; flex: 1; height: 1px; max-width: 120px;
+            background: repeating-linear-gradient(90deg, #f3b8d2 0 4px, transparent 4px 8px);
+        }
+        .bow-divider span { font-size: 17px; }
+
+        /* ---- Nubes/estrellitas decorativas dentro del hero-banner ---- */
+        .deco-cloud, .deco-star, .deco-heart {
+            position: absolute; pointer-events: none; z-index: 0;
+        }
+        .deco-cloud { color: rgba(255,255,255,0.9); }
+        .deco-star { color: #ffe3ee; }
+        .deco-heart { color: rgba(255,255,255,0.75); }
+
         /* ---- Perfil (sidebar) ---- */
         .profile-card {
+            position: relative;
             text-align: center;
             background: #ffffff;
             border: 2px dashed #f3b8d2;
-            border-radius: 20px;
-            padding: 16px 10px 12px 10px;
-            margin-bottom: 14px;
+            border-radius: 26px;
+            padding: 28px 10px 14px 10px;
+            margin-bottom: 10px;
+        }
+        .profile-card::before {
+            content: "🎀";
+            position: absolute;
+            top: -17px; left: 50%; transform: translateX(-50%);
+            font-size: 26px;
+            background: #fff6fa;
+            padding: 0 6px;
+        }
+        .profile-card img {
+            border: 3px solid white !important;
+            outline: 2px solid #f6c9dc;
         }
         .profile-name {
             font-family: 'Pinyon Script', cursive;
-            font-size: 34px;
+            font-size: 30px;
             color: #C2185B;
             font-weight: 400;
-            margin-top: 2px;
+            margin-top: 6px;
         }
+        .profile-name::before { content: "✧˖° "; font-size: 14px; }
+        .profile-name::after { content: " °˖✧"; font-size: 14px; }
 
         /* ---- Banner tipo plaid decorativo (home) ---- */
         .plaid-banner {
@@ -186,13 +223,18 @@ def inject_css():
             font-weight: 700 !important;
         }
 
-        /* ---- Botones corazón del home ---- */
+        /* ---- Botones corazón del home (ahora pastillas ovaladas) ---- */
         .heart-wrap { text-align: center; }
-        .heart-label {
-            font-family: 'Pinyon Script', cursive;
-            font-size: 34px;
-            color: #9b4468;
-            margin-top: -2px;
+        div[class*="st-key-enter_"] button {
+            border-radius: 50px !important;
+            background: white !important;
+            border: 2px solid #f6c9dc !important;
+            font-family: 'Pinyon Script', cursive !important;
+            font-size: 20px !important;
+            color: #9b4468 !important;
+            padding: 9px 4px !important;
+            margin-top: 8px;
+            box-shadow: 0 6px 14px rgba(246,201,220,0.35) !important;
         }
         .section-cover {
             width: 100%;
@@ -226,6 +268,29 @@ def inject_css():
         section[data-testid="stSidebar"] button[kind="secondary"] {
             background: white !important;
             border-radius: 50px !important;
+            border: 1.5px solid #f6d9e6 !important;
+            color: #7a3b52 !important;
+        }
+        div[class*="st-key-nav_"] button {
+            text-align: left !important;
+            padding-left: 20px !important;
+            position: relative;
+        }
+        div[class*="st-key-nav_"] button::after {
+            content: "›";
+            position: absolute;
+            right: 18px; top: 50%; transform: translateY(-50%);
+            font-size: 20px; font-weight: 700;
+        }
+        section[data-testid="stSidebar"] details {
+            border-radius: 50px !important;
+            border: 1.5px solid #f6d9e6 !important;
+            background: white !important;
+            overflow: hidden;
+        }
+        section[data-testid="stSidebar"] details summary {
+            padding: 6px 18px !important;
+            font-weight: 600;
         }
 
         /* ---- Widgets de estadísticas del inicio ---- */
@@ -918,7 +983,7 @@ with st.sidebar:
             st.success("¡Perfil actualizado! (♡ˊ͈ ꒳ ˋ͈)")
             st.rerun()
 
-    st.markdown("---")
+    st.markdown('<div class="bow-divider"><span>🎀</span></div>', unsafe_allow_html=True)
     current_page = st.session_state.get("page")
     current_sec = st.session_state.get("current_section")
 
@@ -939,7 +1004,7 @@ with st.sidebar:
                  type="primary" if current_page == "trash" else "secondary"):
         goto("trash")
 
-    st.markdown("---")
+    st.markdown('<div class="bow-divider"><span>🎀</span></div>', unsafe_allow_html=True)
     if github_configured():
         if st.button("☁️ Guardar en GitHub", use_container_width=True):
             save_db_to_github()
@@ -962,6 +1027,7 @@ def page_home():
     # ZONA IZQUIERDA — buscador, banner de bienvenida, "nuevo", progreso
     # ------------------------------------------------------------------
     with left:
+        st.markdown('<div class="bow-divider"><span>🎀</span></div>', unsafe_allow_html=True)
         query = st.text_input("Search...", key="home_search", placeholder="🔍 Search...", label_visibility="collapsed")
         if query.strip():
             st.markdown('<div class="bento-card"><div class="bento-card-title">Resultados</div>', unsafe_allow_html=True)
@@ -980,6 +1046,12 @@ def page_home():
         st.markdown(
             """
             <div class="hero-banner">
+                <span class="deco-cloud" style="top:8px; left:16px; font-size:34px;">☁</span>
+                <span class="deco-star" style="top:16px; right:70px; font-size:20px;">✦</span>
+                <span class="deco-star" style="top:72%; left:8%; font-size:16px;">✧</span>
+                <span class="deco-cloud" style="bottom:14px; right:20px; font-size:28px;">☁</span>
+                <span class="deco-star" style="top:14%; right:16%; font-size:14px;">⋆</span>
+                <span class="deco-heart" style="bottom:18%; left:22%; font-size:16px;">♡</span>
                 <p class="hero-title">Katsearose's Dreamscape ⋆ ̊꩜。</p>
                 <p class="hero-sep">────୨ৎ────</p>
                 <p class="hero-kaomoji">⋆ ̊꩜。՞ ܸ.ˬ.ܸ՞</p>
@@ -988,6 +1060,7 @@ def page_home():
             unsafe_allow_html=True,
         )
         render_live_clock()
+        st.markdown('<div class="bow-divider"><span>🎀</span></div>', unsafe_allow_html=True)
 
         with st.expander("🖼️ Cambiar las imágenes de portada"):
             for sec in SECTIONS:
@@ -1007,25 +1080,9 @@ def page_home():
                     st.markdown(f'<img class="section-cover" src="data:image/png;base64,{cover}">', unsafe_allow_html=True)
                 else:
                     st.markdown(f'<div class="section-cover-placeholder">{SECTIONS[sec]["emoji"]}</div>', unsafe_allow_html=True)
-                with st.container(key=f"home_heart_{sec}"):
-                    if st.button("💗", key=f"enter_{sec}"):
-                        goto("section", current_section=sec)
-                st.markdown(f'<p class="heart-label">{SECTIONS[sec]["label"]}</p>', unsafe_allow_html=True)
+                if st.button(f"♡ {SECTIONS[sec]['label']} ♡", key=f"enter_{sec}", use_container_width=True):
+                    goto("section", current_section=sec)
                 st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown(
-            """
-            <style>
-            .st-key-home_heart_BL button, .st-key-home_heart_BOOKS button, .st-key-home_heart_STUDY button {
-                font-size: 46px !important; padding: 20px 0 !important; width: 100%; min-height: 96px; margin-top: 10px;
-                background: white !important; border-radius: 50% !important;
-                border: 4px solid #f6c9dc !important;
-                box-shadow: 0 8px 0 rgba(246,201,220,0.55), 0 12px 20px rgba(0,0,0,0.08) !important;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
 
         # Módulo "Nuevo" (tipo New Courses) — últimos títulos agregados en cualquier sección
         st.markdown('<div class="bento-card"><div class="bento-card-title">✨ Recién agregado</div>', unsafe_allow_html=True)
