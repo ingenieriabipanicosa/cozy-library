@@ -214,6 +214,43 @@ def run(sql, params=(), fetch=False, one=False):
     return data
 
 
+def migrate_db():
+    """Agrega columnas nuevas a tablas viejas que ya existían en tu base de datos,
+    sin borrar los datos que ya guardaste."""
+    conn = get_conn()
+    c = conn.cursor()
+
+    def existing_columns(table):
+        c.execute(f"PRAGMA table_info({table})")
+        return {row["name"] for row in c.fetchall()}
+
+    # Tablas y columnas que deben existir, con su definición para ALTER TABLE
+    required = {
+        "items": [
+            ("trashed", "INTEGER DEFAULT 0"),
+            ("favorite", "INTEGER DEFAULT 0"),
+            ("link", "TEXT"),
+            ("folder_id", "INTEGER"),
+            ("created_at", "TEXT"),
+        ],
+        "profile": [
+            ("avatar_b64", "TEXT"),
+        ],
+    }
+
+    for table, columns in required.items():
+        c.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+        if not c.fetchone():
+            continue  # la tabla se crea más abajo con CREATE TABLE IF NOT EXISTS
+        existing = existing_columns(table)
+        for col_name, col_def in columns:
+            if col_name not in existing:
+                c.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
+
+    conn.commit()
+    conn.close()
+
+
 def init_db():
     run("""CREATE TABLE IF NOT EXISTS profile (
             id INTEGER PRIMARY KEY, name TEXT, avatar_b64 TEXT)""")
@@ -236,6 +273,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, done INTEGER DEFAULT 0)""")
     run("""CREATE TABLE IF NOT EXISTS study_notes (
             id INTEGER PRIMARY KEY, content TEXT)""")
+
+    migrate_db()
 
     if not run("SELECT id FROM profile WHERE id=1", fetch=True, one=True):
         run("INSERT INTO profile (id, name, avatar_b64) VALUES (1, ?, NULL)", ("Katsearose",))
