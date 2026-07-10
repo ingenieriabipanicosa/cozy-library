@@ -41,9 +41,6 @@ STUDY_CONTENT_TYPES = {
 SOCIAL_PLATFORMS = {
     "twitter": {"emoji": "🐦", "label": "Twitter / X"},
     "pinterest": {"emoji": "📌", "label": "Pinterest"},
-    "instagram": {"emoji": "📷", "label": "Instagram"},
-    "tiktok": {"emoji": "🎵", "label": "TikTok"},
-    "youtube": {"emoji": "📺", "label": "YouTube"},
 }
 
 DEFAULT_COLORS = ["#F7B8D2", "#F5D6E0", "#E7C9E9", "#D9C6EE", "#C9D6F0", "#F6E3C5", "#E4D4C0"]
@@ -730,6 +727,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, created_at TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS language_cards (
             id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, tag TEXT, created_at TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS study_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, minutes INTEGER, created_at TEXT)""")
 
     migrate_db()
 
@@ -872,9 +871,17 @@ def get_recent_activity(limit=5):
     )
 
 
-def get_streak_days():
-    """Cuenta cuántos días distintos (consecutivos hacia atrás desde hoy) tienen al menos una entrada."""
-    rows = run("SELECT DISTINCT date FROM entries", fetch=True)
+def log_study_session(minutes):
+    """Registra una sesión de estudio (pomodoro) completada el día de hoy."""
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    run("INSERT INTO study_sessions (date, minutes, created_at) VALUES (?,?,?)",
+        (today, minutes, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def get_study_streak_days():
+    """Cuenta cuántos días distintos (consecutivos hacia atrás desde hoy) tienen al menos
+    una sesión de estudio (pomodoro) registrada — ya no depende de las entradas de BL/BOOKS."""
+    rows = run("SELECT DISTINCT date FROM study_sessions", fetch=True)
     if not rows:
         return 0
     days = set()
@@ -889,6 +896,12 @@ def get_streak_days():
         streak += 1
         cursor -= datetime.timedelta(days=1)
     return streak
+
+
+def get_today_study_minutes():
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    rows = run("SELECT minutes FROM study_sessions WHERE date=?", (today,), fetch=True)
+    return sum(r["minutes"] for r in rows) if rows else 0
 
 
 def toggle_favorite(item_id, current):
@@ -1278,29 +1291,75 @@ def page_home():
             )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        streak = get_streak_days()
+        # ---- Racha de estudio (pomodoro en STUDY) — ya no depende de BL/BOOKS ----
+        streak = get_study_streak_days()
         st.markdown(
             f"""
             <div class="streak-card">
                 <div class="streak-number">{streak}</div>
-                <div class="streak-label">🔥 días seguidos escribiendo</div>
+                <div class="streak-label">🍅 racha estudiando</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
+        st.caption("Completa un pomodoro en STUDY para sumar racha ⋆.˚")
 
-        for scol_sec in SECTIONS:
-            total = len(get_all_items_section(scol_sec))
-            st.markdown(
-                f"""<div class="stat-widget" style="margin-bottom:10px;">
-                        <div class="stat-number">{total}</div>
-                        <div class="stat-label">{SECTIONS[scol_sec]['emoji']} títulos en {scol_sec}</div>
-                    </div>""",
-                unsafe_allow_html=True,
-            )
+        # ---- Redes sociales (solo Twitter y Pinterest) ----
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🔗 Mis redes</div>', unsafe_allow_html=True)
+        links = get_social_links()
+        any_link = False
+        for platform, meta in SOCIAL_PLATFORMS.items():
+            url = links.get(platform, "")
+            if url:
+                any_link = True
+                st.markdown(
+                    f'<a class="social-pill" href="{url}" target="_blank">'
+                    f'<span class="social-emoji">{meta["emoji"]}</span> {meta["label"]}</a>',
+                    unsafe_allow_html=True,
+                )
+        if not any_link:
+            st.caption("Aún no agregaste tus links ✨ ábrelos abajo:")
+        with st.expander("✏️ Editar mis redes"):
+            with st.form("edit_social_links"):
+                new_vals = {}
+                for platform, meta in SOCIAL_PLATFORMS.items():
+                    new_vals[platform] = st.text_input(
+                        f"{meta['emoji']} {meta['label']}", value=links.get(platform, ""), key=f"social_{platform}"
+                    )
+                if st.form_submit_button("💾 Guardar links"):
+                    for platform, url in new_vals.items():
+                        save_social_link(platform, url.strip())
+                    st.success("¡Links guardados! ✨")
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ---- Galería de imágenes / gifs pegadas ----
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🖼️ Galería</div>', unsafe_allow_html=True)
+        gallery = get_gallery_images(4)
+        if not gallery:
+            st.caption("Pega tu primera imagen o gif abajo 💗")
+        gcols = st.columns(2)
+        for idx, g in enumerate(gallery):
+            with gcols[idx % 2]:
+                st.markdown('<div class="gallery-thumb-wrap">', unsafe_allow_html=True)
+                st.image(base64.b64decode(g["image_b64"]), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                if g["caption"]:
+                    st.markdown(f'<div class="gallery-caption">{g["caption"]}</div>', unsafe_allow_html=True)
+                if st.button("🗑️", key=f"delgallery_{g['id']}", use_container_width=True):
+                    delete_gallery_image(g["id"])
+                    st.rerun()
+        with st.expander("➕ Agregar imagen / gif"):
+            gimg = st.file_uploader("Imagen o GIF", type=["png", "jpg", "jpeg", "webp", "gif"], key="gallery_up")
+            gcap = st.text_input("Descripción (opcional)", key="gallery_cap")
+            if gimg is not None and st.button("💾 Guardar en galería", key="gallery_save"):
+                add_gallery_image(gimg, gcap.strip())
+                st.success("¡Agregado a la galería! ✨")
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # ------------------------------------------------------------------
-    # ZONA DERECHA — accesos BL/BOOKS/STUDY, redes sociales y galería
+    # ZONA DERECHA — accesos rápidos a BL/BOOKS/STUDY
     # ------------------------------------------------------------------
     with right:
         st.markdown('<div class="bento-card"><div class="bento-card-title">🎀 Mis secciones</div>', unsafe_allow_html=True)
@@ -1317,58 +1376,6 @@ def page_home():
             if st.button(f"♡ {SECTIONS[sec]['label']} ♡", key=f"enter_{sec}", use_container_width=True):
                 goto("section", current_section=sec)
             st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # ---- Redes sociales / links importantes ----
-        st.markdown('<div class="bento-card"><div class="bento-card-title">🔗 Mis redes</div>', unsafe_allow_html=True)
-        links = get_social_links()
-        any_link = False
-        for platform, meta in SOCIAL_PLATFORMS.items():
-            url = links.get(platform, "")
-            if url:
-                any_link = True
-                st.markdown(
-                    f'<a class="social-pill" href="{url}" target="_blank">'
-                    f'<span class="social-emoji">{meta["emoji"]}</span> {meta["label"]}</a>',
-                    unsafe_allow_html=True,
-                )
-        if not any_link:
-            st.caption("Aún no agregaste tus links ✨ ábrelos abajo:")
-        with st.expander("✏️ Editar mis redes / links"):
-            with st.form("edit_social_links"):
-                new_vals = {}
-                for platform, meta in SOCIAL_PLATFORMS.items():
-                    new_vals[platform] = st.text_input(
-                        f"{meta['emoji']} {meta['label']}", value=links.get(platform, ""), key=f"social_{platform}"
-                    )
-                if st.form_submit_button("💾 Guardar links"):
-                    for platform, url in new_vals.items():
-                        save_social_link(platform, url.strip())
-                    st.success("¡Links guardados! ✨")
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # ---- Galería de imágenes / gifs pegadas ----
-        st.markdown('<div class="bento-card"><div class="bento-card-title">🖼️ Galería</div>', unsafe_allow_html=True)
-        gallery = get_gallery_images(6)
-        if not gallery:
-            st.caption("Pega tu primera imagen o gif abajo 💗")
-        for g in gallery:
-            st.markdown('<div class="gallery-thumb-wrap">', unsafe_allow_html=True)
-            st.image(base64.b64decode(g["image_b64"]), use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-            if g["caption"]:
-                st.markdown(f'<div class="gallery-caption">{g["caption"]}</div>', unsafe_allow_html=True)
-            if st.button("🗑️", key=f"delgallery_{g['id']}", use_container_width=True):
-                delete_gallery_image(g["id"])
-                st.rerun()
-        with st.expander("➕ Agregar imagen / gif"):
-            gimg = st.file_uploader("Imagen o GIF", type=["png", "jpg", "jpeg", "webp", "gif"], key="gallery_up")
-            gcap = st.text_input("Descripción (opcional)", key="gallery_cap")
-            if gimg is not None and st.button("💾 Guardar en galería", key="gallery_save"):
-                add_gallery_image(gimg, gcap.strip())
-                st.success("¡Agregado a la galería! ✨")
-                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1397,6 +1404,8 @@ def page_section():
         )
 
     tab_labels = ["📂 Archivadores", "📋 Lista completa", "💗 Favoritos"]
+    if sec == "BL":
+        tab_labels.append("🔗 Mis links")
     if sec == "STUDY":
         tab_labels.append("🗓️ Dashboard / Planner")
 
@@ -1407,6 +1416,9 @@ def page_section():
         render_full_list(sec)
     with tabs[2]:
         render_section_favorites(sec)
+    if sec == "BL":
+        with tabs[3]:
+            render_links_list(sec)
     if sec == "STUDY":
         with tabs[3]:
             page_study_dashboard()
@@ -1481,6 +1493,26 @@ def render_section_favorites(sec):
         with c2:
             if st.button("Abrir", key=f"favsec_open_{it['id']}", use_container_width=True):
                 goto("detail", current_item=it["id"], current_section=sec)
+
+
+def render_links_list(sec):
+    """Reúne en un solo lugar todos los enlaces guardados (ej: 'donde lo leo') de la sección,
+    para que no se pierdan entre tantos títulos."""
+    items = [i for i in get_all_items_section(sec) if i["link"]]
+    if not items:
+        st.info("Todavía no guardaste ningún link (˶˃˂˶) — agrégalo al crear o editar un título.")
+        return
+    for it in items:
+        color = it["folder_color"] or "#f3b8d2"
+        heart = '<span class="fav-heart">💗</span>' if it["favorite"] else ""
+        st.markdown(
+            f"""<div class="book-card" style="border-left-color:{color};">
+                    <span class="book-title">{it['title']}</span> {heart}
+                    <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
+                    <a href="{it['link']}" target="_blank">🔗 {it['link']}</a>
+                </div>""",
+            unsafe_allow_html=True,
+        )
 
 
 def render_archivadores(sec, info):
@@ -1788,8 +1820,69 @@ def render_schedule_block(kind, title):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_pomodoro():
+    """Temporizador Pomodoro: cuenta visualmente en vivo (JS) y, al completar la sesión,
+    un botón nativo de Streamlit registra la sesión de estudio (esto es lo que alimenta la racha)."""
+    st.markdown('<div class="dash-card"><div class="dash-title">🍅 Pomodoro</div>', unsafe_allow_html=True)
+    minutes = st.selectbox("Duración de la sesión", [15, 25, 30, 45, 50], index=1, key="pomo_minutes")
+    today_min = get_today_study_minutes()
+    st.caption(f"Hoy ya llevas **{today_min} min** estudiados ⋆.˚")
+
+    components.html(
+        f"""
+        <div style="font-family:'Inter',sans-serif; text-align:center;">
+            <div id="pomo-display" style="font-size:52px; font-weight:800; color:#6D5F5A;">{minutes:02d}:00</div>
+            <div style="display:flex; gap:10px; justify-content:center; margin-top:8px;">
+                <button id="pomo-start" style="background:#6D5F5A; color:white; border:none; border-radius:50px; padding:8px 20px; font-weight:700; cursor:pointer;">▶️ Iniciar</button>
+                <button id="pomo-pause" style="background:white; color:#6D5F5A; border:2px solid #6D5F5A; border-radius:50px; padding:8px 20px; font-weight:700; cursor:pointer;">⏸️ Pausar</button>
+                <button id="pomo-reset" style="background:white; color:#a9647f; border:2px solid #f6c9dc; border-radius:50px; padding:8px 20px; font-weight:700; cursor:pointer;">🔄 Reiniciar</button>
+            </div>
+            <div id="pomo-msg" style="margin-top:10px; font-size:13px; color:#a9647f;"></div>
+        </div>
+        <script>
+        let totalSeconds = {minutes} * 60;
+        let remaining = totalSeconds;
+        let timer = null;
+        const display = document.getElementById('pomo-display');
+        const msg = document.getElementById('pomo-msg');
+        function render() {{
+            const m = Math.floor(remaining/60).toString().padStart(2,'0');
+            const s = (remaining%60).toString().padStart(2,'0');
+            display.textContent = m + ':' + s;
+        }}
+        document.getElementById('pomo-start').onclick = () => {{
+            if (timer) return;
+            timer = setInterval(() => {{
+                remaining -= 1;
+                render();
+                if (remaining <= 0) {{
+                    clearInterval(timer);
+                    timer = null;
+                    msg.innerHTML = '¡Sesión terminada! ✧ baja y marca "✅ Completé mi pomodoro" para sumar tu racha (˶ᵔ ᵕ ᵔ˶)';
+                }}
+            }}, 1000);
+        }};
+        document.getElementById('pomo-pause').onclick = () => {{ clearInterval(timer); timer = null; }};
+        document.getElementById('pomo-reset').onclick = () => {{
+            clearInterval(timer); timer = null; remaining = totalSeconds; msg.innerHTML=''; render();
+        }};
+        render();
+        </script>
+        """,
+        height=170,
+    )
+
+    if st.button("✅ Completé mi pomodoro", use_container_width=True, key="pomo_complete"):
+        log_study_session(minutes)
+        st.success(f"¡Sesión de {minutes} min registrada! Tu racha de estudio subió 🍅✨")
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def page_study_dashboard():
     st.markdown('<div class="study-beige">', unsafe_allow_html=True)
+
+    render_pomodoro()
 
     ccol1, ccol2 = st.columns([1, 1.3])
     with ccol1:
