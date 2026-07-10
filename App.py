@@ -46,7 +46,7 @@ def inject_css():
         h1, h2, h3 {
             font-family: 'Pinyon Script', cursive !important;
             font-size: 2.6em !important;
-            font-weight: 400 !important;
+            font-weight: 200 !important;
             color: #7a3b52 !important;
         }
         .stTabs [data-baseweb="tab-list"] button p {
