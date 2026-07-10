@@ -26,8 +26,8 @@ DB_PATH = "otaku_bitacora.db"
 
 SECTIONS = {
     "BL": {"label": "⋆. ̊ BL", "emoji": "💗", "link_label": "🔗 Enlace donde lo leo"},
-    "BOOKS": {"label": "⋆. ̊ BOOKS", "emoji": "📚", "link_label": "🔗 Link donde lo leo"},
-    "STUDY": {"label": "⋆. ̊ STUDY", "emoji": "📝", "link_label": "☁️ Link de Drive"},
+    "BOOKS": {"label": "⋆. ̊ BOOKS", "emoji": "📚", "link_label": "🔗 Enlace donde lo leo"},
+    "STUDY": {"label": "⋆. ̊ STUDY", "emoji": "📝", "link_label": "☁️ Enlace de Drive / Notion"},
 }
 
 DEFAULT_COLORS = ["#F7B8D2", "#F5D6E0", "#E7C9E9", "#D9C6EE", "#C9D6F0", "#F6E3C5", "#E4D4C0"]
@@ -39,9 +39,21 @@ def inject_css():
     st.markdown(
         """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&family=Caveat:wght@600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Pinyon+Script&display=swap');
 
-        html, body, [class*="css"] { font-family: 'Quicksand', aileron ; }
+        html, body, [class*="css"] { font-family: 'Jost', sans-serif; }
+
+        h1, h2, h3 {
+            font-family: 'Pinyon Script', cursive !important;
+            font-size: 2.6em !important;
+            font-weight: 400 !important;
+            color: #7a3b52 !important;
+        }
+        .stTabs [data-baseweb="tab-list"] button p {
+            font-family: 'Jost', sans-serif !important;
+            font-size: 1.15em !important;
+            font-weight: 700 !important;
+        }
 
         .stApp {
             background:
@@ -58,9 +70,13 @@ def inject_css():
             border-radius: 14px;
             font-weight: 600;
             border: 1px solid #f6c9dc;
-            transition: transform .08s ease-in-out;
+            transition: transform .12s ease-in-out, box-shadow .12s ease-in-out;
         }
-        div.stButton > button:active { transform: scale(0.92); }
+        div.stButton > button:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 14px rgba(244,150,190,0.35);
+        }
+        div.stButton > button:active { transform: scale(0.90) !important; box-shadow: none !important; }
 
         /* ---- Perfil (sidebar) ---- */
         .profile-card {
@@ -68,15 +84,15 @@ def inject_css():
             background: #ffffff;
             border: 2px dashed #f3b8d2;
             border-radius: 20px;
-            padding: 14px 10px 10px 10px;
+            padding: 16px 10px 12px 10px;
             margin-bottom: 14px;
         }
         .profile-name {
-            font-family: 'Caveat', cursive;
-            font-size: 50px;
+            font-family: 'Pinyon Script', cursive;
+            font-size: 34px;
             color: #C2185B;
-            font-weight: 700;
-            margin-top: 4px;
+            font-weight: 400;
+            margin-top: 2px;
         }
 
         /* ---- Banner tipo plaid decorativo (home) ---- */
@@ -93,13 +109,13 @@ def inject_css():
             box-shadow: 0 10px 26px rgba(230,170,190,0.35);
         }
         .plaid-title {
-            font-family: 'Caveat', cursive;
-            font-size: 70px;
+            font-family: 'Pinyon Script', cursive;
+            font-size: 64px;
             color: #7a3b52;
             margin: 0;
         }
         .plaid-sep { color: #a9647f; letter-spacing: 2px; margin: 4px 0; }
-        .plaid-kaomoji { color: #a9647f; font-size: 50px; }
+        .plaid-kaomoji { color: #a9647f; font-size: 15px; }
 
         /* ---- Hero grande del inicio (estilo Lunar Bloom) ---- */
         .hero-banner {
@@ -122,8 +138,10 @@ def inject_css():
         .hero-banner::before { top: -20px; left: -10px; }
         .hero-banner::after { bottom: -30px; right: -10px; }
         .hero-title {
-            font-family: 'Caveat', cursive;
-            font-size: 58px;
+            font-family: 'Jost', sans-serif;
+            font-weight: 700;
+            letter-spacing: 1px;
+            font-size: 72px !important;
             color: #7a3b52;
             margin: 0;
             position: relative;
@@ -145,11 +163,56 @@ def inject_css():
         /* ---- Botones corazón del home ---- */
         .heart-wrap { text-align: center; }
         .heart-label {
-            font-family: 'Caveat', cursive;
-            font-size: 50px;
+            font-family: 'Pinyon Script', cursive;
+            font-size: 34px;
             color: #9b4468;
-            margin-top: -6px;
+            margin-top: -2px;
         }
+        .section-cover {
+            width: 100%;
+            border-radius: 22px;
+            object-fit: cover;
+            aspect-ratio: 4/3;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            border: 3px solid white;
+            outline: 2px solid #f6c9dc;
+        }
+        .section-cover-placeholder {
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            background: linear-gradient(135deg, #ffe3ee, #fff5f8);
+            border: 3px dashed #f3b8d2;
+        }
+
+        /* ---- Sidebar nav: botón activo (usa type=primary de Streamlit) ---- */
+        section[data-testid="stSidebar"] button[kind="primary"] {
+            background: linear-gradient(135deg, #f7b8d2, #f592b8) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 50px !important;
+            font-weight: 700 !important;
+        }
+        section[data-testid="stSidebar"] button[kind="secondary"] {
+            background: white !important;
+            border-radius: 50px !important;
+        }
+
+        /* ---- Widgets de estadísticas del inicio ---- */
+        .stat-widget {
+            background: white;
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            border: 1px solid #f6d9e6;
+        }
+        .stat-number { font-size: 30px; font-weight: 700; color: #d9749a; font-family: 'Jost', sans-serif; }
+        .stat-label { font-size: 13px; color: #a9647f; }
 
         /* ---- Archivador / carpeta tipo binder ---- */
         .archivador {
@@ -164,14 +227,15 @@ def inject_css():
         }
         .archivador-tab {
             position: absolute;
-            top: -16px;
+            top: -18px;
             left: 14px;
             background: white;
             border: 2px dashed #d98bad;
             border-radius: 10px;
-            padding: 3px 12px;
-            font-size: 13px;
+            padding: 4px 14px;
+            font-size: 16px;
             font-weight: 700;
+            font-family: 'Jost', sans-serif;
             color: #7a3b52;
             box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         }
@@ -191,7 +255,7 @@ def inject_css():
             box-shadow: 0 3px 10px rgba(0,0,0,0.06);
             border-left: 7px solid #f3b8d2;
         }
-        .book-title { font-weight: 700; font-size: 17px; color: #4A2E4D; }
+        .book-title { font-weight: 700; font-size: 20px; color: #4A2E4D; font-family: 'Jost', sans-serif; }
         .stars { color: #FFC107; font-size: 15px; }
         .fav-heart { color: #FF4081; font-size: 18px; }
         .tag-chip {
@@ -218,7 +282,7 @@ def inject_css():
             border: 1px solid #f2dbe6;
             margin-bottom: 14px;
         }
-        .dash-title { font-weight: 700; color: #7a3b52; font-size: 16px; margin-bottom: 8px;}
+        .dash-title { font-weight: 700; color: #7a3b52; font-size: 20px; margin-bottom: 8px; font-family: 'Jost', sans-serif;}
         .badge-chip {
             display:inline-block; background:#f8d7e6; color:#a1315a;
             border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight:700;
@@ -316,6 +380,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, done INTEGER DEFAULT 0)""")
     run("""CREATE TABLE IF NOT EXISTS study_notes (
             id INTEGER PRIMARY KEY, content TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS section_images (
+            section TEXT PRIMARY KEY, image_b64 TEXT)""")
 
     migrate_db()
 
@@ -341,6 +407,20 @@ def save_profile(name, avatar_file):
         run("UPDATE profile SET name=?, avatar_b64=? WHERE id=1", (name, b64))
     else:
         run("UPDATE profile SET name=? WHERE id=1", (name,))
+
+
+# ---------- Imágenes de portada del home (BL / BOOKS / STUDY) ----------
+def get_section_image(section):
+    r = run("SELECT image_b64 FROM section_images WHERE section=?", (section,), fetch=True, one=True)
+    return r["image_b64"] if r else None
+
+
+def save_section_image(section, image_file):
+    b64 = base64.b64encode(image_file.read()).decode("utf-8")
+    if run("SELECT section FROM section_images WHERE section=?", (section,), fetch=True, one=True):
+        run("UPDATE section_images SET image_b64=? WHERE section=?", (b64, section))
+    else:
+        run("INSERT INTO section_images (section, image_b64) VALUES (?,?)", (section, b64))
 
 
 # ---------- Folders (archivadores) ----------
@@ -555,9 +635,9 @@ with st.sidebar:
     prof = get_profile()
     st.markdown('<div class="profile-card">', unsafe_allow_html=True)
     if prof["avatar_b64"]:
-        st.image(base64.b64decode(prof["avatar_b64"]), width=90)
+        st.image(base64.b64decode(prof["avatar_b64"]), width=140)
     else:
-        st.markdown('<div style="font-size:60px;">🐰</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:80px;">🐰</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="profile-name">{prof["name"]}</div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -573,36 +653,22 @@ with st.sidebar:
     current_page = st.session_state.get("page")
     current_sec = st.session_state.get("current_section")
 
-    with st.container(key=f"pill_home_{'on' if current_page=='home' else 'off'}"):
-        if st.button("🏠 Inicio", use_container_width=True, key="nav_home"):
-            goto("home")
+    # NOTA: usamos type="primary"/"secondary" (soporte nativo de Streamlit) en vez
+    # de trucos con CSS por key — así el resaltado del ítem activo es confiable.
+    if st.button("🏠 Inicio", use_container_width=True, key="nav_home",
+                 type="primary" if current_page == "home" else "secondary"):
+        goto("home")
     for sec in SECTIONS:
         is_active = current_page in ("section", "folder", "detail") and current_sec == sec
-        with st.container(key=f"pill_{sec}_{'on' if is_active else 'off'}"):
-            if st.button(SECTIONS[sec]["label"], use_container_width=True, key=f"nav_{sec}"):
-                goto("section", current_section=sec)
-    with st.container(key=f"pill_fav_{'on' if current_page=='favorites' else 'off'}"):
-        if st.button("͙֒ FAVORITES ⋆.˚", use_container_width=True, key="nav_fav"):
-            goto("favorites")
-    with st.container(key=f"pill_trash_{'on' if current_page=='trash' else 'off'}"):
-        if st.button("🗑️ Papelera", use_container_width=True, key="nav_trash"):
-            goto("trash")
-
-    st.markdown(
-        """
-        <style>
-        [class*="st-key-pill_"][class*="_on"] button {
-            background: linear-gradient(135deg, #f7b8d2, #f592b8) !important;
-            color: white !important; border: none !important;
-            border-radius: 50px !important; font-weight: 700 !important;
-        }
-        [class*="st-key-pill_"][class*="_off"] button {
-            background: white !important; border-radius: 50px !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+        if st.button(SECTIONS[sec]["label"], use_container_width=True, key=f"nav_{sec}",
+                     type="primary" if is_active else "secondary"):
+            goto("section", current_section=sec)
+    if st.button("͙֒ FAVORITES ⋆.˚", use_container_width=True, key="nav_fav",
+                 type="primary" if current_page == "favorites" else "secondary"):
+        goto("favorites")
+    if st.button("🗑️ Papelera", use_container_width=True, key="nav_trash",
+                 type="primary" if current_page == "trash" else "secondary"):
+        goto("trash")
 
     st.markdown("---")
     if github_configured():
@@ -632,12 +698,49 @@ def page_home():
         unsafe_allow_html=True,
     )
 
+    # Widgets de estadísticas — para que el inicio no se sienta vacío
+    scols = st.columns(3)
+    for scol, sec in zip(scols, SECTIONS):
+        total = len(get_all_items_section(sec))
+        favs = len([i for i in get_all_items_section(sec) if i["favorite"]])
+        with scol:
+            st.markdown(
+                f"""<div class="stat-widget">
+                        <div class="stat-number">{total}</div>
+                        <div class="stat-label">{SECTIONS[sec]['emoji']} títulos en {sec}</div>
+                        <div class="stat-number" style="font-size:18px; margin-top:4px;">💗 {favs}</div>
+                        <div class="stat-label">favoritos</div>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    with st.expander("🖼️ Cambiar las imágenes de portada"):
+        for sec in SECTIONS:
+            up = st.file_uploader(f"Portada para {sec}", type=["png", "jpg", "jpeg", "webp"], key=f"cover_up_{sec}")
+            if up is not None and st.button(f"Guardar portada de {sec}", key=f"cover_save_{sec}"):
+                save_section_image(sec, up)
+                st.success(f"¡Portada de {sec} actualizada! ✨")
+                st.rerun()
+
     cols = st.columns(3)
     for col, sec in zip(cols, SECTIONS):
         with col:
             st.markdown('<div class="heart-wrap">', unsafe_allow_html=True)
+            cover = get_section_image(sec)
+            if cover:
+                st.markdown(
+                    f'<img class="section-cover" src="data:image/png;base64,{cover}">',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<div class="section-cover-placeholder">{SECTIONS[sec]["emoji"]}</div>',
+                    unsafe_allow_html=True,
+                )
             with st.container(key=f"home_heart_{sec}"):
-                if st.button(SECTIONS[sec]["emoji"], key=f"enter_{sec}"):
+                if st.button("💗", key=f"enter_{sec}"):
                     goto("section", current_section=sec)
             st.markdown(f'<p class="heart-label">{SECTIONS[sec]["label"]}</p>', unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
@@ -646,7 +749,7 @@ def page_home():
         """
         <style>
         .st-key-home_heart_BL button, .st-key-home_heart_BOOKS button, .st-key-home_heart_STUDY button {
-            font-size: 46px !important; padding: 22px 0 !important; width: 100%;
+            font-size: 54px !important; padding: 26px 0 !important; width: 100%; margin-top: 10px;
             background: white !important; border-radius: 50% !important;
             border: 3px solid #f6c9dc !important;
         }
