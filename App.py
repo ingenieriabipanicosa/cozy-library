@@ -1,7 +1,5 @@
 """
 🌸 Katsearose's Dreamscape 🌸
-Bitácora otaku en Streamlit: BL, Books y Study con archivadores,
-hilos tipo tweet, papelera, perfil y dashboard de horarios.
 """
 
 import streamlit as st
