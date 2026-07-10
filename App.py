@@ -45,7 +45,7 @@ def inject_css():
 
         .stApp {
             background:
-                radial-gradient(circle, #f9d6e3 1px, transparent 1px) 0 0/26px 50px,
+                radial-gradient(circle, #f9d6e3 1px, transparent 1px) 0 0/26px 36px,
                 #ffffff;
         }
 
@@ -55,7 +55,7 @@ def inject_css():
         }
 
         div.stButton > button {
-            border-radius: 14px;
+            border-radius: 50px;
             font-weight: 600;
             border: 1px solid #f6c9dc;
             transition: transform .08s ease-in-out;
