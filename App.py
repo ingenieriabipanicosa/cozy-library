@@ -55,7 +55,7 @@ def inject_css():
         }
 
         div.stButton > button {
-            border-radius: 50px;
+            border-radius: 100px;
             font-weight: 600;
             border: 1px solid #f6c9dc;
             transition: transform .08s ease-in-out;
@@ -66,14 +66,14 @@ def inject_css():
         .profile-card {
             text-align: center;
             background: #ffffff;
-            border: 2px dashed #f3b8d2;
+            border: 5px dashed #f3b8d2;
             border-radius: 20px;
             padding: 14px 10px 10px 10px;
             margin-bottom: 14px;
         }
         .profile-name {
             font-family: 'Caveat', cursive;
-            font-size: 26px;
+            font-size: 50px;
             color: #C2185B;
             font-weight: 700;
             margin-top: 4px;
