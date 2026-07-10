@@ -26,8 +26,8 @@ DB_PATH = "otaku_bitacora.db"
 
 SECTIONS = {
     "BL": {"label": "⋆. ̊ BL", "emoji": "💗", "link_label": "🔗 Enlace donde lo leo"},
-    "BOOKS": {"label": "⋆. ̊ BOOKS", "emoji": "📚", "link_label": "🔗 Enlace donde lo leo"},
-    "STUDY": {"label": "⋆. ̊ STUDY", "emoji": "📝", "link_label": "☁️ Enlace de Drive / Notion"},
+    "BOOKS": {"label": "⋆. ̊ BOOKS", "emoji": "📚", "link_label": "🔗 Link donde lo leo"},
+    "STUDY": {"label": "⋆. ̊ STUDY", "emoji": "📝", "link_label": "☁️ Link de Drive"},
 }
 
 DEFAULT_COLORS = ["#F7B8D2", "#F5D6E0", "#E7C9E9", "#D9C6EE", "#C9D6F0", "#F6E3C5", "#E4D4C0"]
@@ -41,11 +41,11 @@ def inject_css():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&family=Caveat:wght@600;700&display=swap');
 
-        html, body, [class*="css"] { font-family: 'Quicksand', sans-serif; }
+        html, body, [class*="css"] { font-family: 'Quicksand', aileron ; }
 
         .stApp {
             background:
-                radial-gradient(circle, #f9d6e3 1px, transparent 1px) 0 0/26px 36px,
+                radial-gradient(circle, #f9d6e3 1px, transparent 1px) 0 0/26px 26px,
                 #ffffff;
         }
 
@@ -55,7 +55,7 @@ def inject_css():
         }
 
         div.stButton > button {
-            border-radius: 100px;
+            border-radius: 14px;
             font-weight: 600;
             border: 1px solid #f6c9dc;
             transition: transform .08s ease-in-out;
@@ -66,7 +66,7 @@ def inject_css():
         .profile-card {
             text-align: center;
             background: #ffffff;
-            border: 5px dashed #f3b8d2;
+            border: 2px dashed #f3b8d2;
             border-radius: 20px;
             padding: 14px 10px 10px 10px;
             margin-bottom: 14px;
@@ -94,12 +94,12 @@ def inject_css():
         }
         .plaid-title {
             font-family: 'Caveat', cursive;
-            font-size: 46px;
+            font-size: 70px;
             color: #7a3b52;
             margin: 0;
         }
         .plaid-sep { color: #a9647f; letter-spacing: 2px; margin: 4px 0; }
-        .plaid-kaomoji { color: #a9647f; font-size: 15px; }
+        .plaid-kaomoji { color: #a9647f; font-size: 50px; }
 
         /* ---- Hero grande del inicio (estilo Lunar Bloom) ---- */
         .hero-banner {
@@ -146,7 +146,7 @@ def inject_css():
         .heart-wrap { text-align: center; }
         .heart-label {
             font-family: 'Caveat', cursive;
-            font-size: 24px;
+            font-size: 50px;
             color: #9b4468;
             margin-top: -6px;
         }
