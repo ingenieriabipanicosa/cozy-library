@@ -31,6 +31,21 @@ SECTIONS = {
     "STUDY": {"label": "⋆. ̊ STUDY", "emoji": "📝", "link_label": "☁️ Enlace de Drive / Notion"},
 }
 
+# Tipos de contenido que se pueden archivar dentro de STUDY (ya no es "libros")
+STUDY_CONTENT_TYPES = {
+    "video": {"emoji": "📺", "label": "Video de YouTube"},
+    "link": {"emoji": "🔗", "label": "Link / Página"},
+    "doc": {"emoji": "📄", "label": "Documento"},
+}
+
+SOCIAL_PLATFORMS = {
+    "twitter": {"emoji": "🐦", "label": "Twitter / X"},
+    "pinterest": {"emoji": "📌", "label": "Pinterest"},
+    "instagram": {"emoji": "📷", "label": "Instagram"},
+    "tiktok": {"emoji": "🎵", "label": "TikTok"},
+    "youtube": {"emoji": "📺", "label": "YouTube"},
+}
+
 DEFAULT_COLORS = ["#F7B8D2", "#F5D6E0", "#E7C9E9", "#D9C6EE", "#C9D6F0", "#F6E3C5", "#E4D4C0"]
 
 # ============================================================
@@ -452,6 +467,23 @@ def inject_css():
             border-radius: 8px; padding: 2px 8px; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.4px;
         }
 
+        /* ---- Redes sociales (pills con icono) ---- */
+        .social-pill {
+            display:flex; align-items:center; gap:10px; background:#fff6fa;
+            border:1px solid #f6d9e6; border-radius: 50px; padding: 8px 14px;
+            margin-bottom: 8px; text-decoration:none !important; color:#7a3b52 !important;
+            font-weight:600; font-size:13px; transition: transform .12s ease-in-out;
+        }
+        .social-pill:hover { transform: translateX(3px); background:#ffe9f2; }
+        .social-emoji { font-size: 18px; }
+
+        /* ---- Galería de imágenes/gifs del home ---- */
+        .gallery-thumb-wrap {
+            border-radius: 16px; overflow:hidden; border: 2px solid #f6d9e6;
+            margin-bottom: 8px; background:#fff6fa;
+        }
+        .gallery-caption { font-size: 11px; color:#a9647f; text-align:center; padding: 2px 4px 6px 4px; }
+
         /* ============================================================
            STUDY — paleta "soft neutrals / beige aesthetic"
            ============================================================ */
@@ -479,6 +511,26 @@ def inject_css():
         .cal-day { padding:6px 0; border-radius:8px; color:#5b4c3a; }
         .cal-day.other { color:#c9bda6; }
         .cal-day.today { background:#6D5F5A; color:#fff; font-weight:700; }
+
+        /* ---- STUDY archivador de contenidos (video/link/doc) ---- */
+        .study-item-card {
+            background: #F4ECE0;
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin-bottom: 9px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+            border-left: 7px solid #C9B79B;
+        }
+        .study-item-title { font-weight: 700; font-size: 17px; color: #4A3B2F; font-family: 'Inter', sans-serif; }
+
+        /* ---- Lenguajes: galería de tarjetas para pegar imágenes ---- */
+        .lang-card {
+            background: white; border-radius: 18px; overflow:hidden;
+            border: 2px solid #f6d9e6; box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            margin-bottom: 14px;
+        }
+        .lang-card img { width:100%; display:block; max-height:260px; object-fit:cover; }
+        .lang-card-body { padding: 10px 14px; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -629,6 +681,7 @@ def migrate_db():
             ("folder_id", "INTEGER"),
             ("created_at", "TEXT"),
             ("current_chapter", "TEXT"),
+            ("content_type", "TEXT"),
         ],
         "profile": [
             ("avatar_b64", "TEXT"),
@@ -657,7 +710,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             section TEXT NOT NULL, title TEXT NOT NULL, link TEXT,
             folder_id INTEGER, favorite INTEGER DEFAULT 0,
-            trashed INTEGER DEFAULT 0, created_at TEXT)""")
+            trashed INTEGER DEFAULT 0, created_at TEXT, content_type TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_id INTEGER NOT NULL, date TEXT, text TEXT,
@@ -671,6 +724,12 @@ def init_db():
             id INTEGER PRIMARY KEY, content TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS section_images (
             section TEXT PRIMARY KEY, image_b64 TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS social_links (
+            platform TEXT PRIMARY KEY, url TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS home_gallery (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, created_at TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS language_cards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, tag TEXT, created_at TEXT)""")
 
     migrate_db()
 
@@ -712,6 +771,34 @@ def save_section_image(section, image_file):
         run("INSERT INTO section_images (section, image_b64) VALUES (?,?)", (section, b64))
 
 
+# ---------- Redes sociales ----------
+def get_social_links():
+    rows = run("SELECT * FROM social_links", fetch=True)
+    return {r["platform"]: r["url"] for r in rows} if rows else {}
+
+
+def save_social_link(platform, url):
+    if run("SELECT platform FROM social_links WHERE platform=?", (platform,), fetch=True, one=True):
+        run("UPDATE social_links SET url=? WHERE platform=?", (url, platform))
+    else:
+        run("INSERT INTO social_links (platform, url) VALUES (?,?)", (platform, url))
+
+
+# ---------- Galería del home (imágenes / gifs) ----------
+def get_gallery_images(limit=8):
+    return run("SELECT * FROM home_gallery ORDER BY id DESC LIMIT ?", (limit,), fetch=True)
+
+
+def add_gallery_image(image_file, caption):
+    b64 = base64.b64encode(image_file.read()).decode("utf-8")
+    run("INSERT INTO home_gallery (image_b64, caption, created_at) VALUES (?,?,?)",
+        (b64, caption, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def delete_gallery_image(img_id):
+    run("DELETE FROM home_gallery WHERE id=?", (img_id,))
+
+
 # ---------- Folders (archivadores) ----------
 def get_folders(section):
     return run("SELECT * FROM folders WHERE section=? ORDER BY name", (section,), fetch=True)
@@ -745,9 +832,9 @@ def get_all_items_section(section):
 
 
 # ---------- Items ----------
-def add_item(section, title, link, folder_id, favorite):
-    run("INSERT INTO items (section, title, link, folder_id, favorite, trashed, created_at) VALUES (?,?,?,?,?,0,?)",
-        (section, title, link, folder_id, int(favorite), datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+def add_item(section, title, link, folder_id, favorite, content_type=None):
+    run("INSERT INTO items (section, title, link, folder_id, favorite, trashed, created_at, content_type) VALUES (?,?,?,?,?,0,?,?)",
+        (section, title, link, folder_id, int(favorite), datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), content_type))
 
 
 def get_items(section, folder_id):
@@ -894,6 +981,28 @@ def save_notes(content):
     run("UPDATE study_notes SET content=? WHERE id=1", (content,))
 
 
+# ---------- Lenguajes (hoja vinculada a STUDY, con tarjetas de imágenes) ----------
+def get_language_cards(tag=None):
+    if tag and tag != "Todas":
+        return run("SELECT * FROM language_cards WHERE tag=? ORDER BY id DESC", (tag,), fetch=True)
+    return run("SELECT * FROM language_cards ORDER BY id DESC", fetch=True)
+
+
+def get_language_tags():
+    rows = run("SELECT DISTINCT tag FROM language_cards WHERE tag IS NOT NULL AND tag<>'' ORDER BY tag", fetch=True)
+    return [r["tag"] for r in rows] if rows else []
+
+
+def add_language_card(image_file, caption, tag):
+    b64 = base64.b64encode(image_file.read()).decode("utf-8") if image_file is not None else None
+    run("INSERT INTO language_cards (image_b64, caption, tag, created_at) VALUES (?,?,?,?)",
+        (b64, caption, tag, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def delete_language_card(card_id):
+    run("DELETE FROM language_cards WHERE id=?", (card_id,))
+
+
 # ============================================================
 # GITHUB SYNC (opcional, vía st.secrets)
 # ============================================================
@@ -997,6 +1106,11 @@ with st.sidebar:
         if st.button(SECTIONS[sec]["label"], use_container_width=True, key=f"nav_{sec}",
                      type="primary" if is_active else "secondary"):
             goto("section", current_section=sec)
+        if sec == "STUDY":
+            # Hoja "Lenguajes": vinculada a STUDY pero como página independiente
+            if st.button("　🌐 Lenguajes", use_container_width=True, key="nav_languages",
+                         type="primary" if current_page == "languages" else "secondary"):
+                goto("languages")
     if st.button("͙֒ FAVORITES ⋆.˚", use_container_width=True, key="nav_fav",
                  type="primary" if current_page == "favorites" else "secondary"):
         goto("favorites")
@@ -1024,7 +1138,7 @@ def page_home():
     left, middle, right = st.columns([2, 1, 1.2])
 
     # ------------------------------------------------------------------
-    # ZONA IZQUIERDA — buscador, banner de bienvenida, "nuevo", progreso
+    # ZONA IZQUIERDA — buscador, banner de bienvenida, actividad reciente + destacado
     # ------------------------------------------------------------------
     with left:
         st.markdown('<div class="bow-divider"><span>🎀</span></div>', unsafe_allow_html=True)
@@ -1070,19 +1184,43 @@ def page_home():
                     st.success(f"¡Portada de {sec} actualizada! ✨")
                     st.rerun()
 
-        # Accesos directos a cada sección — la ilustración "sale" ligeramente del marco
-        hcols = st.columns(3)
-        for col, sec in zip(hcols, SECTIONS):
-            with col:
-                st.markdown('<div class="heart-wrap">', unsafe_allow_html=True)
-                cover = get_section_image(sec)
-                if cover:
-                    st.markdown(f'<img class="section-cover" src="data:image/png;base64,{cover}">', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="section-cover-placeholder">{SECTIONS[sec]["emoji"]}</div>', unsafe_allow_html=True)
-                if st.button(f"♡ {SECTIONS[sec]['label']} ♡", key=f"enter_{sec}", use_container_width=True):
-                    goto("section", current_section=sec)
-                st.markdown("</div>", unsafe_allow_html=True)
+        # ---- Actividad reciente + destacado (antes estaban a la derecha; ahora viven aquí) ----
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🔔 Actividad reciente</div>', unsafe_allow_html=True)
+        activity = get_recent_activity(5)
+        if not activity:
+            st.caption("Sin actividad todavía")
+        for a in activity:
+            st.markdown(
+                f"""<div class="notif-item">
+                        <div class="notif-icon">{SECTIONS[a['section']]['emoji']}</div>
+                        <div>
+                            <div class="notif-title">{a['item_title'][:26]}</div>
+                            <div class="notif-meta">{a['date']} · {"⭐"*a['stars'] if a['stars'] else ''}</div>
+                        </div>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        featured = next((a for a in get_recent_activity(15) if a["image_b64"]), None)
+        st.markdown('<div class="featured-card">', unsafe_allow_html=True)
+        if featured:
+            st.image(base64.b64decode(featured["image_b64"]))
+            st.markdown(
+                f"""<div class="featured-body">
+                        <span class="featured-badge">Más reciente</span><br>
+                        <b>{featured['item_title']}</b><br>
+                        <span class="mini-course-meta">{featured['date']}</span>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="featured-body"><span class="featured-badge">Destacado</span><br>'
+                'Aún no hay entradas con imagen — ¡sube una en el hilo de algún título! (˶˃˂˶)</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
         # Módulo "Nuevo" (tipo New Courses) — últimos títulos agregados en cualquier sección
         st.markdown('<div class="bento-card"><div class="bento-card-title">✨ Recién agregado</div>', unsafe_allow_html=True)
@@ -1162,45 +1300,75 @@ def page_home():
             )
 
     # ------------------------------------------------------------------
-    # ZONA DERECHA — notificaciones/actividad + tarjeta destacada
+    # ZONA DERECHA — accesos BL/BOOKS/STUDY, redes sociales y galería
     # ------------------------------------------------------------------
     with right:
-        st.markdown('<div class="bento-card"><div class="bento-card-title">🔔 Actividad reciente</div>', unsafe_allow_html=True)
-        activity = get_recent_activity(5)
-        if not activity:
-            st.caption("Sin actividad todavía")
-        for a in activity:
-            st.markdown(
-                f"""<div class="notif-item">
-                        <div class="notif-icon">{SECTIONS[a['section']]['emoji']}</div>
-                        <div>
-                            <div class="notif-title">{a['item_title'][:26]}</div>
-                            <div class="notif-meta">{a['date']} · {"⭐"*a['stars'] if a['stars'] else ''}</div>
-                        </div>
-                    </div>""",
-                unsafe_allow_html=True,
-            )
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🎀 Mis secciones</div>', unsafe_allow_html=True)
+        with st.expander("🖼️ Cambiar portadas aquí también"):
+            st.caption("(atajo — también puedes cambiarlas desde el panel de la izquierda)")
+
+        for sec in SECTIONS:
+            st.markdown('<div class="heart-wrap">', unsafe_allow_html=True)
+            cover = get_section_image(sec)
+            if cover:
+                st.markdown(f'<img class="section-cover" src="data:image/png;base64,{cover}">', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="section-cover-placeholder">{SECTIONS[sec]["emoji"]}</div>', unsafe_allow_html=True)
+            if st.button(f"♡ {SECTIONS[sec]['label']} ♡", key=f"enter_{sec}", use_container_width=True):
+                goto("section", current_section=sec)
+            st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Tarjeta destacada (última entrada con imagen) — analogía al "Video Destacado"
-        featured = next((a for a in get_recent_activity(15) if a["image_b64"]), None)
-        st.markdown('<div class="featured-card">', unsafe_allow_html=True)
-        if featured:
-            st.image(base64.b64decode(featured["image_b64"]))
-            st.markdown(
-                f"""<div class="featured-body">
-                        <span class="featured-badge">Más reciente</span><br>
-                        <b>{featured['item_title']}</b><br>
-                        <span class="mini-course-meta">{featured['date']}</span>
-                    </div>""",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<div class="featured-body"><span class="featured-badge">Destacado</span><br>'
-                'Aún no hay entradas con imagen — ¡sube una en el hilo de algún título! (˶˃˂˶)</div>',
-                unsafe_allow_html=True,
-            )
+        # ---- Redes sociales / links importantes ----
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🔗 Mis redes</div>', unsafe_allow_html=True)
+        links = get_social_links()
+        any_link = False
+        for platform, meta in SOCIAL_PLATFORMS.items():
+            url = links.get(platform, "")
+            if url:
+                any_link = True
+                st.markdown(
+                    f'<a class="social-pill" href="{url}" target="_blank">'
+                    f'<span class="social-emoji">{meta["emoji"]}</span> {meta["label"]}</a>',
+                    unsafe_allow_html=True,
+                )
+        if not any_link:
+            st.caption("Aún no agregaste tus links ✨ ábrelos abajo:")
+        with st.expander("✏️ Editar mis redes / links"):
+            with st.form("edit_social_links"):
+                new_vals = {}
+                for platform, meta in SOCIAL_PLATFORMS.items():
+                    new_vals[platform] = st.text_input(
+                        f"{meta['emoji']} {meta['label']}", value=links.get(platform, ""), key=f"social_{platform}"
+                    )
+                if st.form_submit_button("💾 Guardar links"):
+                    for platform, url in new_vals.items():
+                        save_social_link(platform, url.strip())
+                    st.success("¡Links guardados! ✨")
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ---- Galería de imágenes / gifs pegadas ----
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🖼️ Galería</div>', unsafe_allow_html=True)
+        gallery = get_gallery_images(6)
+        if not gallery:
+            st.caption("Pega tu primera imagen o gif abajo 💗")
+        for g in gallery:
+            st.markdown('<div class="gallery-thumb-wrap">', unsafe_allow_html=True)
+            st.image(base64.b64decode(g["image_b64"]), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            if g["caption"]:
+                st.markdown(f'<div class="gallery-caption">{g["caption"]}</div>', unsafe_allow_html=True)
+            if st.button("🗑️", key=f"delgallery_{g['id']}", use_container_width=True):
+                delete_gallery_image(g["id"])
+                st.rerun()
+        with st.expander("➕ Agregar imagen / gif"):
+            gimg = st.file_uploader("Imagen o GIF", type=["png", "jpg", "jpeg", "webp", "gif"], key="gallery_up")
+            gcap = st.text_input("Descripción (opcional)", key="gallery_cap")
+            if gimg is not None and st.button("💾 Guardar en galería", key="gallery_save"):
+                add_gallery_image(gimg, gcap.strip())
+                st.success("¡Agregado a la galería! ✨")
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1220,6 +1388,13 @@ def page_section():
         """,
         unsafe_allow_html=True,
     )
+
+    if sec == "STUDY":
+        st.caption("📁 Aquí guardas videos, links y documentos de preu — organizados por etiqueta.")
+        st.markdown(
+            '¿Buscas tarjetas de idiomas? Ve a la hoja <b>🌐 Lenguajes</b> desde el menú lateral.',
+            unsafe_allow_html=True,
+        )
 
     tab_labels = ["📂 Archivadores", "📋 Lista completa", "💗 Favoritos"]
     if sec == "STUDY":
@@ -1245,20 +1420,30 @@ def render_full_list(sec):
         st.info("Todavía no hay títulos en esta sección (˶˃˂˶)")
         return
     for it in items:
-        score = average_score(it["id"])
-        heart = '<span class="fav-heart">💗</span>' if it["favorite"] else ""
         color = it["folder_color"] or "#f3b8d2"
+        heart = '<span class="fav-heart">💗</span>' if it["favorite"] else ""
         c1, c2 = st.columns([6, 1])
         with c1:
-            st.markdown(
-                f"""<div class="book-card" style="border-left-color:{color};">
-                        <span class="book-title">{it['title']}</span> {heart}
-                        <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
-                        <span class="stars">{stars_html(score)}</span> ({score}/5)
-                        {f'&nbsp;&nbsp;🔖 {it["current_chapter"]}' if it["current_chapter"] else ''}
-                    </div>""",
-                unsafe_allow_html=True,
-            )
+            if sec == "STUDY":
+                ctype = STUDY_CONTENT_TYPES.get(it["content_type"], {"emoji": "🗂️"})
+                st.markdown(
+                    f"""<div class="study-item-card" style="border-left-color:{color};">
+                            <span class="study-item-title">{ctype['emoji']} {it['title']}</span> {heart}
+                            <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin etiqueta'}</span>
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
+            else:
+                score = average_score(it["id"])
+                st.markdown(
+                    f"""<div class="book-card" style="border-left-color:{color};">
+                            <span class="book-title">{it['title']}</span> {heart}
+                            <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
+                            <span class="stars">{stars_html(score)}</span> ({score}/5)
+                            {f'&nbsp;&nbsp;🔖 {it["current_chapter"]}' if it["current_chapter"] else ''}
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
         with c2:
             if st.button("Abrir", key=f"fulllist_open_{it['id']}", use_container_width=True):
                 goto("detail", current_item=it["id"], current_section=sec)
@@ -1271,18 +1456,28 @@ def render_section_favorites(sec):
         st.info("Aún no marcaste favoritos en esta sección (˶˃˂˶)")
         return
     for it in items:
-        score = average_score(it["id"])
         color = it["folder_color"] or "#f3b8d2"
         c1, c2 = st.columns([6, 1])
         with c1:
-            st.markdown(
-                f"""<div class="book-card" style="border-left-color:{color};">
-                        <span class="book-title">{it['title']}</span> <span class="fav-heart">💗</span>
-                        <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
-                        <span class="stars">{stars_html(score)}</span> ({score}/5)
-                    </div>""",
-                unsafe_allow_html=True,
-            )
+            if sec == "STUDY":
+                ctype = STUDY_CONTENT_TYPES.get(it["content_type"], {"emoji": "🗂️"})
+                st.markdown(
+                    f"""<div class="study-item-card" style="border-left-color:{color};">
+                            <span class="study-item-title">{ctype['emoji']} {it['title']}</span> <span class="fav-heart">💗</span>
+                            <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin etiqueta'}</span>
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
+            else:
+                score = average_score(it["id"])
+                st.markdown(
+                    f"""<div class="book-card" style="border-left-color:{color};">
+                            <span class="book-title">{it['title']}</span> <span class="fav-heart">💗</span>
+                            <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
+                            <span class="stars">{stars_html(score)}</span> ({score}/5)
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
         with c2:
             if st.button("Abrir", key=f"favsec_open_{it['id']}", use_container_width=True):
                 goto("detail", current_item=it["id"], current_section=sec)
@@ -1290,10 +1485,12 @@ def render_section_favorites(sec):
 
 def render_archivadores(sec, info):
     folders = get_folders(sec)
+    folder_word = "etiqueta" if sec == "STUDY" else "archivador"
 
-    with st.expander("🎀 Crear nuevo archivador"):
+    with st.expander(f"🎀 Crear nueva {folder_word}"):
         with st.form(f"add_folder_{sec}", clear_on_submit=True):
-            fname = st.text_input("Nombre del archivador (ej: Yaoi, Manhwa, Física...)")
+            placeholder = "ej: YouTube preu, Links preu, Documentos..." if sec == "STUDY" else "ej: Yaoi, Manhwa, Física..."
+            fname = st.text_input(f"Nombre de la {folder_word}", placeholder=placeholder)
             fcolor = st.color_picker("Color de tapa", DEFAULT_COLORS[len(folders) % len(DEFAULT_COLORS)])
             if st.form_submit_button("Crear 🎀") and fname.strip():
                 add_folder(sec, fname.strip(), fcolor)
@@ -1320,7 +1517,7 @@ def render_archivadores(sec, info):
 
 
 # ============================================================
-# PÁGINA: dentro de un archivador → lista alfabética de libros
+# PÁGINA: dentro de un archivador → lista alfabética de libros / contenidos
 # ============================================================
 def page_folder():
     sec = st.session_state.get("current_section", "BL")
@@ -1337,10 +1534,20 @@ def page_folder():
     with st.expander("➕ Agregar nuevo título aquí"):
         with st.form(f"add_item_{folder_id}", clear_on_submit=True):
             title = st.text_input("Título")
-            link = st.text_input(info["link_label"])
-            favorite = st.checkbox("💗 Marcar como favorito")
+            if sec == "STUDY":
+                content_type = st.selectbox(
+                    "Tipo de contenido",
+                    options=list(STUDY_CONTENT_TYPES.keys()),
+                    format_func=lambda k: f"{STUDY_CONTENT_TYPES[k]['emoji']} {STUDY_CONTENT_TYPES[k]['label']}",
+                )
+                link = st.text_input("🔗 Link (YouTube, Drive, página, etc.)")
+                favorite = st.checkbox("💗 Marcar como importante")
+            else:
+                content_type = None
+                link = st.text_input(info["link_label"])
+                favorite = st.checkbox("💗 Marcar como favorito")
             if st.form_submit_button("Guardar 💾") and title.strip():
-                add_item(sec, title.strip(), link.strip(), folder_id, favorite)
+                add_item(sec, title.strip(), link.strip(), folder_id, favorite, content_type)
                 st.success("¡Guardado! (♡ˊ͈ ꒳ ˋ͈)")
                 st.rerun()
 
@@ -1351,17 +1558,29 @@ def page_folder():
         return
 
     for it in items:
-        score = average_score(it["id"])
         heart = '<span class="fav-heart">💗</span>' if it["favorite"] else ""
         c1, c2, c3 = st.columns([5, 1, 1])
         with c1:
-            st.markdown(
-                f"""<div class="book-card">
-                        <span class="book-title">{it['title']}</span> {heart}<br>
-                        <span class="stars">{stars_html(score)}</span> ({score}/5)
-                    </div>""",
-                unsafe_allow_html=True,
-            )
+            if sec == "STUDY":
+                ctype = STUDY_CONTENT_TYPES.get(it["content_type"], {"emoji": "🗂️", "label": "Archivo"})
+                st.markdown(
+                    f"""<div class="study-item-card">
+                            <span class="study-item-title">{ctype['emoji']} {it['title']}</span> {heart}<br>
+                            <span class="mini-course-meta">{ctype['label']}</span>
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
+                if it["link"]:
+                    st.markdown(f"[🔗 Abrir enlace]({it['link']})")
+            else:
+                score = average_score(it["id"])
+                st.markdown(
+                    f"""<div class="book-card">
+                            <span class="book-title">{it['title']}</span> {heart}<br>
+                            <span class="stars">{stars_html(score)}</span> ({score}/5)
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
         with c2:
             if st.button("Abrir", key=f"openitem_{it['id']}", use_container_width=True):
                 goto("detail", current_item=it["id"], current_section=sec)
@@ -1386,13 +1605,14 @@ def page_detail():
         st.error("No se encontró este título.")
         return
     info = SECTIONS[sec]
-    score = average_score(item_id)
+    is_study = sec == "STUDY"
 
     col1, col2 = st.columns([5, 1])
     with col1:
-        st.markdown(f"## {item['title']} {'💗' if item['favorite'] else ''}")
+        title_icon = STUDY_CONTENT_TYPES.get(item["content_type"], {}).get("emoji", "") if is_study else ""
+        st.markdown(f"## {title_icon} {item['title']} {'💗' if item['favorite'] else ''}")
     with col2:
-        if st.button("🗑️ Eliminar libro", use_container_width=True):
+        if st.button("🗑️ Eliminar", use_container_width=True):
             soft_delete_item(item_id)
             st.success("Movido a la papelera 🗑️")
             goto("section", current_section=sec)
@@ -1400,35 +1620,41 @@ def page_detail():
 
     if item["link"]:
         st.markdown(f"[{info['link_label']}]({item['link']})")
-    st.markdown(f"### {stars_html(score)}  —  {score}/5 · {len(get_entries(item_id))} entradas")
+
+    if not is_study:
+        score = average_score(item_id)
+        st.markdown(f"### {stars_html(score)}  —  {score}/5 · {len(get_entries(item_id))} entradas")
+
+        st.markdown("---")
+        st.markdown("### 🔖 ¿Hasta dónde te quedaste?")
+        cc1, cc2 = st.columns([4, 1])
+        with cc1:
+            chapter_val = st.text_input(
+                "Capítulo / página / episodio actual",
+                value=item["current_chapter"] or "",
+                key=f"chapter_{item_id}",
+                placeholder="ej: Capítulo 34, o Tomo 2 - pág. 120",
+                label_visibility="collapsed",
+            )
+        with cc2:
+            if st.button("💾 Guardar", key=f"savechap_{item_id}", use_container_width=True):
+                save_chapter(item_id, chapter_val.strip())
+                st.toast("¡Guardado! 🔖")
+                st.rerun()
+        if item["current_chapter"]:
+            st.caption(f"📍 Vas por: **{item['current_chapter']}**")
 
     st.markdown("---")
-    st.markdown("### 🔖 ¿Hasta dónde te quedaste?")
-    cc1, cc2 = st.columns([4, 1])
-    with cc1:
-        chapter_val = st.text_input(
-            "Capítulo / página / episodio actual",
-            value=item["current_chapter"] or "",
-            key=f"chapter_{item_id}",
-            placeholder="ej: Capítulo 34, o Tomo 2 - pág. 120",
-            label_visibility="collapsed",
-        )
-    with cc2:
-        if st.button("💾 Guardar", key=f"savechap_{item_id}", use_container_width=True):
-            save_chapter(item_id, chapter_val.strip())
-            st.toast("¡Guardado! 🔖")
-            st.rerun()
-    if item["current_chapter"]:
-        st.caption(f"📍 Vas por: **{item['current_chapter']}**")
-
-    st.markdown("---")
-    st.markdown("### ✏️ Nueva entrada")
+    st.markdown("### ✏️ Nueva entrada" if not is_study else "### ✏️ Notas sobre este contenido")
     with st.form("new_entry_form", clear_on_submit=True):
         text = st.text_area("¿Qué quieres anotar hoy?")
-        stars = st.slider("Puntuación de esta entrada", 1, 5, 5)
+        if is_study:
+            stars = 0
+        else:
+            stars = st.slider("Puntuación de esta entrada", 1, 5, 5)
         image = st.file_uploader("Imagen o GIF (opcional)", type=["png", "jpg", "jpeg", "gif", "webp"])
         if st.form_submit_button("Publicar 🌸") and text.strip():
-            add_entry(item_id, text.strip(), image, stars)
+            add_entry(item_id, text.strip(), image, stars if stars else None)
             st.success("¡Entrada guardada!")
             st.rerun()
 
@@ -1440,10 +1666,11 @@ def page_detail():
     for e in entries:
         c1, c2 = st.columns([6, 1])
         with c1:
+            stars_row = f'<span class="stars">{"⭐"*e["stars"]}{"☆"*(5-e["stars"])}</span><br>' if e["stars"] else ""
             st.markdown(
                 f"""<div class="tweet-card">
                         <span class="tweet-date">{e['date']}</span><br>
-                        <span class="stars">{"⭐"*e['stars']}{"☆"*(5-e['stars'])}</span><br>
+                        {stars_row}
                         <p>{e['text']}</p>
                     </div>""",
                 unsafe_allow_html=True,
@@ -1471,15 +1698,25 @@ def page_favorites():
         st.info("Todavía no marcaste favoritos (˶˃˂˶)")
         return
     for it in favs:
-        score = average_score(it["id"])
-        st.markdown(
-            f"""<div class="book-card">
-                    <span class="book-title">{it['title']}</span> <span class="fav-heart">💗</span>
-                    <span class="tag-chip" style="background:#d98bad;">{it['section']}</span><br>
-                    <span class="stars">{stars_html(score)}</span> ({score}/5)
-                </div>""",
-            unsafe_allow_html=True,
-        )
+        if it["section"] == "STUDY":
+            ctype = STUDY_CONTENT_TYPES.get(it["content_type"], {"emoji": "🗂️"})
+            st.markdown(
+                f"""<div class="study-item-card">
+                        <span class="study-item-title">{ctype['emoji']} {it['title']}</span> <span class="fav-heart">💗</span>
+                        <span class="tag-chip" style="background:#d98bad;">{it['section']}</span>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        else:
+            score = average_score(it["id"])
+            st.markdown(
+                f"""<div class="book-card">
+                        <span class="book-title">{it['title']}</span> <span class="fav-heart">💗</span>
+                        <span class="tag-chip" style="background:#d98bad;">{it['section']}</span><br>
+                        <span class="stars">{stars_html(score)}</span> ({score}/5)
+                    </div>""",
+                unsafe_allow_html=True,
+            )
         if st.button("Abrir 📖", key=f"favopen_{it['id']}"):
             goto("detail", current_item=it["id"], current_section=it["section"])
 
@@ -1598,6 +1835,58 @@ def page_study_dashboard():
 
 
 # ============================================================
+# PÁGINA: LENGUAJES (hoja vinculada a STUDY, no anidada dentro de ella)
+# Galería de tarjetas de imágenes para repasar vocabulario / gramática, etc.
+# ============================================================
+def page_languages():
+    st.markdown(
+        """
+        <div class="plaid-banner">
+            <p class="plaid-title" style="font-size:56px;">🌐 Lenguajes</p>
+            <p class="plaid-sep">────୨ৎ────</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.caption("Vinculada a STUDY, pero con su propio espacio — pega aquí imágenes para repasar (vocabulario, gramática, apuntes, etc.)")
+
+    tags = ["Todas"] + get_language_tags()
+    selected_tag = st.selectbox("Filtrar por etiqueta", tags, key="lang_tag_filter")
+
+    with st.expander("➕ Agregar nueva tarjeta"):
+        with st.form("add_lang_card", clear_on_submit=True):
+            limg = st.file_uploader("Imagen (vocabulario, apuntes, captura, etc.)", type=["png", "jpg", "jpeg", "webp", "gif"])
+            lcap = st.text_input("Descripción / traducción (opcional)")
+            ltag = st.text_input("Etiqueta (ej: Inglés, Francés, Gramática...)")
+            if st.form_submit_button("Guardar 💾") and limg is not None:
+                add_language_card(limg, lcap.strip(), ltag.strip() or "General")
+                st.success("¡Tarjeta agregada! ✨")
+                st.rerun()
+
+    st.markdown("---")
+    cards = get_language_cards(selected_tag)
+    if not cards:
+        st.info("Todavía no hay tarjetas aquí (˶˃˂˶) ¡agrega la primera arriba!")
+        return
+
+    cols = st.columns(3)
+    for i, card in enumerate(cards):
+        with cols[i % 3]:
+            st.markdown('<div class="lang-card">', unsafe_allow_html=True)
+            if card["image_b64"]:
+                st.image(base64.b64decode(card["image_b64"]), use_container_width=True)
+            st.markdown('<div class="lang-card-body">', unsafe_allow_html=True)
+            if card["tag"]:
+                st.markdown(f'<span class="tag-chip" style="background:#d9749a;">{card["tag"]}</span>', unsafe_allow_html=True)
+            if card["caption"]:
+                st.markdown(f"<p>{card['caption']}</p>", unsafe_allow_html=True)
+            st.markdown("</div></div>", unsafe_allow_html=True)
+            if st.button("🗑️ Eliminar", key=f"dellang_{card['id']}", use_container_width=True):
+                delete_language_card(card["id"])
+                st.rerun()
+
+
+# ============================================================
 # ROUTER
 # ============================================================
 page = st.session_state["page"]
@@ -1613,3 +1902,5 @@ elif page == "favorites":
     page_favorites()
 elif page == "trash":
     page_trash()
+elif page == "languages":
+    page_languages()
