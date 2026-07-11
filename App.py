@@ -76,6 +76,16 @@ def inject_css():
 
         html, body, [class*="css"] { font-family: 'Inter', sans-serif; font-weight: 300; }
 
+        /* ---- Aumento general de tamaño de letra en toda la app (pedido: "se ve muy pequeño") ---- */
+        html, body, [class*="css"] { font-size: 17px !important; }
+        div.stButton > button { font-size: 15.5px !important; padding: 11px 18px !important; }
+        div[data-testid="stTextInput"] input,
+        div[data-testid="stTextArea"] textarea,
+        div[data-testid="stSelectbox"] div,
+        div[data-testid="stDateInput"] input { font-size: 15.5px !important; }
+        .stMarkdown p, .stMarkdown li, .stCaption, label p, .stCheckbox label p { font-size: 15px !important; }
+        div[data-testid="stFileUploader"] section { font-size: 14px !important; }
+
         h1, h2, h3 {
             font-family: 'Inter', sans-serif !important;
             font-weight: 700 !important;
@@ -447,14 +457,6 @@ def inject_css():
         .progress-fill {
             height: 100%; background: linear-gradient(90deg, #f7b8d2, #d9749a); border-radius: 10px;
         }
-        .collection-mini {
-            display:flex; align-items:center; gap: 10px; background:#fff6fa;
-            border-radius: 14px; padding: 8px 10px; margin-bottom: 8px; border:1px solid #f6d9e6;
-        }
-        .collection-thumb {
-            width: 42px; height: 42px; border-radius: 10px; object-fit: cover; flex-shrink:0;
-            background: linear-gradient(135deg,#ffe3ee,#fff5f8);
-        }
         .streak-card {
             text-align:center; background: linear-gradient(160deg, #fdeaf2, #fff6fa);
             border-radius: 20px; padding: 20px 16px; border: 1px solid #f6d9e6; margin-bottom: 16px;
@@ -529,6 +531,13 @@ def inject_css():
         .cal-day.other { color:#c9bda6; }
         .cal-day.today { background:#6D5F5A; color:#fff; font-weight:700; }
 
+        /* ---- Calendario grande del home (tareas + citas) ---- */
+        .cal-wrap.big { padding: 22px 24px; }
+        .cal-wrap.big .cal-head { font-size: 20px; margin-bottom: 14px; }
+        .cal-wrap.big .cal-grid { font-size: 17px; gap: 8px; }
+        .cal-wrap.big .cal-day { padding: 12px 0; border-radius: 10px; }
+        .cal-wrap.big .cal-dow { font-size: 14px; }
+
         /* ---- STUDY archivador de contenidos (video/link/doc) ---- */
         .study-item-card {
             background: #F4ECE0;
@@ -539,6 +548,15 @@ def inject_css():
             border-left: 7px solid #C9B79B;
         }
         .study-item-title { font-weight: 700; font-size: 27px; color: #4A3B2F; font-family: 'Inter', sans-serif; }
+
+        /* ---- Mosaico discontinuo de imágenes sueltas dentro de STUDY → Archivadores ---- */
+        .masonry-grid { column-count: 3; column-gap: 14px; margin-top: 10px; margin-bottom: 6px; }
+        .masonry-item {
+            break-inside: avoid; margin-bottom: 14px; border-radius: 18px; overflow: hidden;
+            border: 2px solid #E7DBC7; box-shadow: 0 4px 12px rgba(0,0,0,0.08); background:#F4ECE0;
+        }
+        .masonry-item img { width:100%; display:block; }
+        @media (max-width: 900px) { .masonry-grid { column-count: 2; } }
 
         /* ---- Lenguajes: galería de tarjetas (imágenes, videos, playlists, archivos) ---- */
         .lang-card {
@@ -570,6 +588,17 @@ def inject_css():
         }
         .custom-link-url:hover { text-decoration: underline !important; }
 
+        /* ---- Links de estudio (biblioteca tipo lista, con etiquetas pastilla arriba) ---- */
+        div[class*="st-key-tagpill_"] button {
+            border-radius: 50px !important; font-size: 13.5px !important; padding: 7px 16px !important;
+        }
+        .study-link-row {
+            background: #F4ECE0; border-radius: 14px; padding: 10px 16px; margin-bottom: 8px;
+            border-left: 6px solid #C9B79B; display:flex; justify-content:space-between; align-items:center; gap:10px;
+        }
+        .study-link-title { font-weight:700; color:#4A3B2F; font-size:16px; }
+        .study-link-url { font-size:12px; color:#a9647f; word-break:break-all; }
+
         /* ---- Botón de descarga de archivos adjuntos ---- */
         div[data-testid="stDownloadButton"] button {
             border-radius: 50px !important;
@@ -587,11 +616,17 @@ def inject_css():
             background: white; border-radius: 14px; padding: 10px 14px; margin-bottom: 8px;
             border-left: 6px solid #C9B79B; box-shadow: 0 3px 10px rgba(0,0,0,0.05);
         }
-        .task-home-title { font-weight:600; font-size:13px; color:#4A2E4D; }
-        .task-home-meta { font-size: 11px; color:#a9647f; }
+        .task-home-title { font-weight:600; font-size:14px; color:#4A2E4D; }
+        .task-home-meta { font-size: 12px; color:#a9647f; }
         .priority-chip {
             display:inline-block; padding:1px 9px; border-radius:10px; font-size:10px;
             color:white; font-weight:700; margin-left:6px;
+        }
+
+        /* ---- Portada de cada libro (BL / BOOKS) ---- */
+        .cover-wrap img {
+            width: 100%; border-radius: 20px; object-fit: cover; max-height: 340px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12); border: 3px solid white; outline: 2px solid #f6c9dc;
         }
 
         /* ---- Spotify embed lateral en el hilo ---- */
@@ -681,16 +716,20 @@ def render_flip_clock():
     )
 
 
-def render_month_calendar():
-    """Calendario mensual estático (mes actual, hora de Perú), día de hoy resaltado."""
+def render_month_calendar(marked_days=None, big=False):
+    """Calendario mensual estático (mes actual, hora de Perú), día de hoy resaltado.
+    marked_days: set de números de día (del mes actual) que deben marcarse con un puntito
+    porque tienen una tarea con fecha límite o una cita guardada ese día."""
     import calendar as _cal
+    marked_days = marked_days or set()
     today = datetime.date.today()
     cal = _cal.Calendar(firstweekday=6)  # domingo primero, como en la referencia (S M T W T F S)
     weeks = cal.monthdayscalendar(today.year, today.month)
     month_name = today.strftime("%B %Y").capitalize()
     dows = ["S", "M", "T", "W", "T", "F", "S"]
 
-    html = f'<div class="cal-wrap"><div class="cal-head">{month_name}</div><div class="cal-grid">'
+    wrap_class = "cal-wrap big" if big else "cal-wrap"
+    html = f'<div class="{wrap_class}"><div class="cal-head">{month_name}</div><div class="cal-grid">'
     for d in dows:
         html += f'<div class="cal-dow">{d}</div>'
     for week in weeks:
@@ -700,7 +739,9 @@ def render_month_calendar():
             elif day == today.day:
                 html += f'<div class="cal-day today">{day}</div>'
             else:
-                html += f'<div class="cal-day">{day}</div>'
+                dot = ('<div style="width:5px;height:5px;border-radius:50%;background:#d9749a;'
+                       'margin:2px auto 0;"></div>') if day in marked_days else ''
+                html += f'<div class="cal-day">{day}{dot}</div>'
     html += "</div></div>"
     st.markdown(html, unsafe_allow_html=True)
 
@@ -819,6 +860,15 @@ def init_db():
     run("""CREATE TABLE IF NOT EXISTS custom_links (
             id INTEGER PRIMARY KEY AUTOINCREMENT, section TEXT, title TEXT, url TEXT,
             note TEXT, created_at TEXT)""")
+    # ---- Tablas nuevas ----
+    run("""CREATE TABLE IF NOT EXISTS study_gallery (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, created_at TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS study_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, url TEXT, tag TEXT, created_at TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS appointments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, title TEXT, created_at TEXT)""")
+    run("""CREATE TABLE IF NOT EXISTS horario_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, image_b64 TEXT, caption TEXT, created_at TEXT)""")
 
     migrate_db()
 
@@ -888,6 +938,71 @@ def delete_gallery_image(img_id):
     run("DELETE FROM home_gallery WHERE id=?", (img_id,))
 
 
+# ---------- Galería de imágenes de STUDY (visible directo en Archivadores) ----------
+def get_study_gallery(limit=60):
+    return run("SELECT * FROM study_gallery ORDER BY id DESC LIMIT ?", (limit,), fetch=True)
+
+
+def add_study_gallery_image(image_bytes, caption):
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    run("INSERT INTO study_gallery (image_b64, caption, created_at) VALUES (?,?,?)",
+        (b64, caption, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def delete_study_gallery_image(img_id):
+    run("DELETE FROM study_gallery WHERE id=?", (img_id,))
+
+
+# ---------- Links de estudio (biblioteca con etiquetas independientes) ----------
+def get_study_link_tags():
+    rows = run("SELECT DISTINCT tag FROM study_links WHERE tag IS NOT NULL AND tag<>'' ORDER BY tag", fetch=True)
+    return [r["tag"] for r in rows] if rows else []
+
+
+def get_study_links(tag=None):
+    if tag and tag != "Ver todo":
+        return run("SELECT * FROM study_links WHERE tag=? ORDER BY title COLLATE NOCASE", (tag,), fetch=True)
+    return run("SELECT * FROM study_links ORDER BY title COLLATE NOCASE", fetch=True)
+
+
+def add_study_link(title, url, tag):
+    run("INSERT INTO study_links (title, url, tag, created_at) VALUES (?,?,?,?)",
+        (title, url, tag, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def delete_study_link(link_id):
+    run("DELETE FROM study_links WHERE id=?", (link_id,))
+
+
+# ---------- Citas (agregadas desde el calendario del home) ----------
+def get_appointments():
+    return run("SELECT * FROM appointments ORDER BY date", fetch=True)
+
+
+def add_appointment(date_str, title):
+    run("INSERT INTO appointments (date, title, created_at) VALUES (?,?,?)",
+        (date_str, title, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def delete_appointment(appt_id):
+    run("DELETE FROM appointments WHERE id=?", (appt_id,))
+
+
+# ---------- Fotos de Horario (mini ventana del home) ----------
+def get_horario_photos():
+    return run("SELECT * FROM horario_photos ORDER BY id DESC", fetch=True)
+
+
+def add_horario_photo(image_bytes, caption=""):
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    run("INSERT INTO horario_photos (image_b64, caption, created_at) VALUES (?,?,?)",
+        (b64, caption, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+
+def delete_horario_photo(photo_id):
+    run("DELETE FROM horario_photos WHERE id=?", (photo_id,))
+
+
 # ---------- Mis links (links generales, NO asociados a libros) ----------
 def get_custom_links(section):
     return run("SELECT * FROM custom_links WHERE section=? ORDER BY id DESC", (section,), fetch=True)
@@ -924,8 +1039,13 @@ def save_chapter(item_id, chapter_text):
     run("UPDATE items SET current_chapter=? WHERE id=?", (chapter_text, item_id))
 
 
+def set_item_cover(item_id, file_b64, file_name):
+    """Guarda/actualiza la portada de un libro (BL/BOOKS) pegada o subida desde su ficha."""
+    run("UPDATE items SET file_b64=?, file_name=? WHERE id=?", (file_b64, file_name, item_id))
+
+
 def get_all_items_section(section):
-    """Todos los títulos de una sección (todas las carpetas), en orden alfabético — para la hoja 'Lista completa'."""
+    """Todos los títulos de una sección (todas las carpetas), en orden alfabético."""
     return run(
         "SELECT items.*, folders.name AS folder_name, folders.color AS folder_color "
         "FROM items LEFT JOIN folders ON items.folder_id = folders.id "
@@ -955,14 +1075,6 @@ def get_favorites_all():
     return run("SELECT * FROM items WHERE favorite=1 AND trashed=0 ORDER BY title COLLATE NOCASE", fetch=True)
 
 
-def get_recent_items_all(limit=4):
-    """Últimos títulos agregados en cualquier sección — para el módulo 'Nuevo' del home."""
-    return run(
-        "SELECT * FROM items WHERE trashed=0 ORDER BY created_at DESC, id DESC LIMIT ?",
-        (limit,), fetch=True,
-    )
-
-
 def search_items_all(query):
     like = f"%{query}%"
     return run(
@@ -990,7 +1102,7 @@ def log_study_session(minutes):
 
 def get_study_streak_days():
     """Cuenta cuántos días distintos (consecutivos hacia atrás desde hoy) tienen al menos
-    una sesión de estudio (pomodoro) registrada — ya no depende de las entradas de BL/BOOKS."""
+    una sesión de estudio (pomodoro) registrada."""
     rows = run("SELECT DISTINCT date FROM study_sessions", fetch=True)
     if not rows:
         return 0
@@ -1086,7 +1198,7 @@ def get_todos():
 
 
 def get_pending_todos(limit=6):
-    """Tareas pendientes (no completadas), ordenadas por fecha límite — para mostrarlas en el home."""
+    """Tareas pendientes (no completadas), ordenadas por fecha límite."""
     return run(
         "SELECT * FROM study_todos WHERE done=0 ORDER BY (due_date IS NULL), due_date, id LIMIT ?",
         (limit,), fetch=True,
@@ -1333,8 +1445,6 @@ with st.sidebar:
     current_page = st.session_state.get("page")
     current_sec = st.session_state.get("current_section")
 
-    # NOTA: usamos type="primary"/"secondary" (soporte nativo de Streamlit) en vez
-    # de trucos con CSS por key — así el resaltado del ítem activo es confiable.
     if st.button("🏠 Inicio", use_container_width=True, key="nav_home",
                  type="primary" if current_page == "home" else "secondary"):
         goto("home")
@@ -1344,7 +1454,6 @@ with st.sidebar:
                      type="primary" if is_active else "secondary"):
             goto("section", current_section=sec)
         if sec == "STUDY":
-            # Hoja "Lenguajes": vinculada a STUDY pero como página independiente
             if st.button("　🌐 Lenguajes", use_container_width=True, key="nav_languages",
                          type="primary" if current_page == "languages" else "secondary"):
                 goto("languages")
@@ -1367,14 +1476,88 @@ with st.sidebar:
         )
 
 # ============================================================
+# HOME: bloque de calendario grande + tareas/citas
+# (va entre "Cambiar las imágenes de portada" y "Actividad reciente")
+# ============================================================
+def render_home_planner():
+    st.markdown('<div class="bento-card"><div class="bento-card-title">🗓️ Calendario &amp; pendientes</div>', unsafe_allow_html=True)
+
+    today = datetime.date.today()
+    todos = get_pending_todos(50)
+    appts = get_appointments()
+
+    marked_days = set()
+    upcoming = []
+    for t in todos:
+        if t["due_date"]:
+            try:
+                d = datetime.datetime.strptime(t["due_date"], "%Y-%m-%d").date()
+                if d.year == today.year and d.month == today.month:
+                    marked_days.add(d.day)
+                upcoming.append((d, f"✅ {t['text']}", (d - today).days))
+            except Exception:
+                pass
+    for a in appts:
+        try:
+            d = datetime.datetime.strptime(a["date"], "%Y-%m-%d").date()
+            if d.year == today.year and d.month == today.month:
+                marked_days.add(d.day)
+            upcoming.append((d, f"📌 {a['title']}", (d - today).days))
+        except Exception:
+            pass
+
+    render_month_calendar(marked_days=marked_days, big=True)
+
+    upcoming.sort(key=lambda x: x[0])
+    if not upcoming:
+        st.caption("Sin tareas ni citas próximas por ahora ✨")
+    for d, label, days_left in upcoming[:6]:
+        if days_left < 0:
+            txt = "Ya venció"
+        elif days_left == 0:
+            txt = "¡Es hoy!"
+        elif days_left == 1:
+            txt = "Falta 1 día"
+        else:
+            txt = f"Faltan {days_left} días"
+        st.markdown(
+            f"""<div class="task-home-card">
+                    <span class="task-home-title" style="font-size:15px;">{label}</span><br>
+                    <span class="task-home-meta">📅 {d.strftime('%d %b')} &nbsp;·&nbsp; <b>{txt}</b></span>
+                </div>""",
+            unsafe_allow_html=True,
+        )
+
+    with st.expander("➕ Agregar cita al calendario"):
+        with st.form("add_appt_home", clear_on_submit=True):
+            appt_title = st.text_input("¿Qué es?")
+            appt_date = st.date_input("Fecha", value=today, key="appt_date_home")
+            if st.form_submit_button("💾 Guardar cita") and appt_title.strip():
+                add_appointment(appt_date.strftime("%Y-%m-%d"), appt_title.strip())
+                st.success("¡Cita agregada al calendario! 🗓️")
+                st.rerun()
+        if appts:
+            st.caption("Tus citas guardadas:")
+            for a in appts:
+                cc1, cc2 = st.columns([5, 1])
+                with cc1:
+                    st.caption(f"📌 {a['title']} — {a['date']}")
+                with cc2:
+                    if st.button("🗑️", key=f"delappt_{a['id']}"):
+                        delete_appointment(a["id"])
+                        st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ============================================================
 # PÁGINA: HOME
 # ============================================================
 def page_home():
-    # Zona asimétrica de 3 columnas (2fr / 1fr / 1.2fr) — orden discontinuo tipo bento grid
     left, middle, right = st.columns([2, 1, 1.2])
 
     # ------------------------------------------------------------------
-    # ZONA IZQUIERDA — buscador, banner de bienvenida, actividad reciente + destacado
+    # ZONA IZQUIERDA — buscador, banner, calendario/pendientes, actividad reciente + destacado
     # ------------------------------------------------------------------
     with left:
         st.markdown('<div class="bow-divider"><span>🎀</span></div>', unsafe_allow_html=True)
@@ -1420,7 +1603,10 @@ def page_home():
                     st.success(f"¡Portada de {sec} actualizada! ✨")
                     st.rerun()
 
-        # ---- Actividad reciente + destacado (antes estaban a la derecha; ahora viven aquí) ----
+        # ---- Calendario grande con tareas/citas (pedido: entre portadas y actividad reciente) ----
+        render_home_planner()
+
+        # ---- Actividad reciente + destacado ----
         st.markdown('<div class="bento-card"><div class="bento-card-title">🔔 Actividad reciente</div>', unsafe_allow_html=True)
         activity = get_recent_activity(5)
         if not activity:
@@ -1458,46 +1644,10 @@ def page_home():
             )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Módulo "Nuevo" (tipo New Courses) — últimos títulos agregados en cualquier sección
-        st.markdown('<div class="bento-card"><div class="bento-card-title">✨ Recién agregado</div>', unsafe_allow_html=True)
-        recent = get_recent_items_all(4)
-        if not recent:
-            st.caption("Todavía no agregaste ningún título (˶˃˂˶)")
-        else:
-            rcols = st.columns(len(recent))
-            for rc, it in zip(rcols, recent):
-                with rc:
-                    st.markdown(
-                        f"""<div class="mini-course-card">
-                                <div class="mini-course-title">{SECTIONS[it['section']]['emoji']} {it['title'][:22]}</div>
-                                <div class="mini-course-meta">{it['section']} · {it['created_at'] or ''}</div>
-                            </div>""",
-                        unsafe_allow_html=True,
-                    )
-                    if st.button("Abrir", key=f"recent_open_{it['id']}", use_container_width=True):
-                        goto("detail", current_item=it["id"], current_section=it["section"])
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # Módulo de progreso — total de entradas escritas (analogía a "Total hours watched")
-        total_entries = sum(len(get_entries(i["id"])) for sec in SECTIONS for i in get_all_items_section(sec))
-        goal = max(50, total_entries + 10)
-        pct = int(min(100, round((total_entries / goal) * 100))) if goal else 0
-        st.markdown(
-            f"""
-            <div class="bento-card">
-                <div class="bento-card-title">📈 Total de entradas escritas</div>
-                <div class="progress-track"><div class="progress-fill" style="width:{pct}%;"></div></div>
-                <div style="text-align:right; font-size:12px; color:#a9647f; margin-top:6px;">{total_entries} entradas</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
     # ------------------------------------------------------------------
-    # ZONA CENTRAL — tareas pendientes de STUDY + colección de favoritos + racha
+    # ZONA CENTRAL — tareas pendientes de STUDY + botón HORARIO + racha + redes + galería
     # ------------------------------------------------------------------
     with middle:
-        # ---- Tareas pendientes de STUDY (con fecha límite y color de prioridad) ----
         st.markdown('<div class="bento-card"><div class="bento-card-title">✅ Tareas pendientes</div>', unsafe_allow_html=True)
         pending = get_pending_todos(6)
         if not pending:
@@ -1516,24 +1666,38 @@ def page_home():
             goto("section", current_section="STUDY")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown('<div class="bento-card"><div class="bento-card-title">💗 Colección</div>', unsafe_allow_html=True)
-        favs = get_favorites_all()
-        if not favs:
-            st.caption("Sin favoritos aún")
-        for f in favs[:4]:
-            st.markdown(
-                f"""<div class="collection-mini">
-                        <div class="collection-thumb"></div>
-                        <div>
-                            <div class="mini-course-title" style="font-size:13px;">{f['title'][:20]}</div>
-                            <div class="mini-course-meta">{f['section']}</div>
-                        </div>
-                    </div>""",
-                unsafe_allow_html=True,
-            )
+        # ---- Botón HORARIO: al presionarlo abre una mini ventana con galería grande de fotos ----
+        st.markdown('<div class="bento-card"><div class="bento-card-title">📅 Horario</div>', unsafe_allow_html=True)
+        if "show_horario_gallery" not in st.session_state:
+            st.session_state["show_horario_gallery"] = False
+        if st.button("📅 HORARIO", use_container_width=True, key="btn_horario_toggle"):
+            st.session_state["show_horario_gallery"] = not st.session_state["show_horario_gallery"]
+            st.rerun()
+
+        if st.session_state["show_horario_gallery"]:
+            photos = get_horario_photos()
+            if not photos:
+                st.caption("Aún no subiste ninguna foto de tu horario 🗓️")
+            for p in photos:
+                st.markdown('<div class="gallery-thumb-wrap">', unsafe_allow_html=True)
+                st.image(base64.b64decode(p["image_b64"]), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                if p["caption"]:
+                    st.caption(p["caption"])
+                if st.button("🗑️ Eliminar esta foto", key=f"delhorario_{p['id']}", use_container_width=True):
+                    delete_horario_photo(p["id"])
+                    st.rerun()
+            with st.expander("➕ Agregar foto de horario"):
+                hbytes, hname = image_input("Foto del horario (súbela o pégala)", key_prefix="horario_img")
+                if hbytes:
+                    st.image(hbytes, width=220, caption="Vista previa")
+                hcap = st.text_input("Descripción (opcional)", key="horario_cap")
+                if hbytes is not None and st.button("💾 Guardar foto", key="horario_save"):
+                    add_horario_photo(hbytes, hcap.strip())
+                    st.success("¡Foto guardada! ✨")
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ---- Racha de estudio (pomodoro en STUDY) — ya no depende de BL/BOOKS ----
         streak = get_study_streak_days()
         st.markdown(
             f"""
@@ -1546,7 +1710,6 @@ def page_home():
         )
         st.caption("Completa un pomodoro en STUDY para sumar racha ⋆.˚")
 
-        # ---- Redes sociales (solo Twitter y Pinterest) ----
         st.markdown('<div class="bento-card"><div class="bento-card-title">🔗 Mis redes</div>', unsafe_allow_html=True)
         links = get_social_links()
         any_link = False
@@ -1575,7 +1738,6 @@ def page_home():
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ---- Galería de imágenes / gifs pegadas ----
         st.markdown('<div class="bento-card"><div class="bento-card-title">🖼️ Galería</div>', unsafe_allow_html=True)
         gallery = get_gallery_images(4)
         if not gallery:
@@ -1642,70 +1804,40 @@ def page_section():
     if sec == "STUDY":
         st.caption("📁 Aquí guardas videos, listas de reproducción, links y documentos de preu — organizados por etiqueta.")
         st.markdown(
-            '¿Buscas tarjetas de idiomas? Ve a la hoja <b>🌐 Lenguajes</b> desde el menú lateral.',
+            '¿Buscas tarjetas de idiomas? Ve a la hoja <b>🌐 Lenguajes</b> desde el menú lateral. '
+            '¿Buscas tus links de estudio en formato biblioteca? Están en la pestaña <b>🔗 Links de estudio</b> de aquí abajo.',
             unsafe_allow_html=True,
         )
 
-    tab_labels = ["📂 Archivadores", "📋 Lista completa", "💗 Favoritos"]
+    tab_labels = ["📂 Archivadores", "💗 Favoritos"]
     if sec == "BL":
         tab_labels.append("🔗 Mis links")
     if sec == "STUDY":
+        tab_labels.append("🔗 Links de estudio")
         tab_labels.append("🗓️ Dashboard / Planner")
 
     tabs = st.tabs(tab_labels)
     with tabs[0]:
         render_archivadores(sec, info)
     with tabs[1]:
-        render_full_list(sec)
-    with tabs[2]:
         render_section_favorites(sec)
+
+    idx = 2
     if sec == "BL":
-        with tabs[3]:
+        with tabs[idx]:
             render_links_list(sec)
+        idx += 1
     if sec == "STUDY":
-        with tabs[3]:
+        with tabs[idx]:
+            render_study_links()
+        idx += 1
+        with tabs[idx]:
             page_study_dashboard()
-
-
-def render_full_list(sec):
-    """Hoja 2: TODOS los títulos de la sección en una sola lista alfabética,
-    con un punto de color mostrando a qué archivador/etiqueta pertenece."""
-    items = get_all_items_section(sec)
-    if not items:
-        st.info("Todavía no hay títulos en esta sección (˶˃˂˶)")
-        return
-    for it in items:
-        color = it["folder_color"] or "#f3b8d2"
-        heart = '<span class="fav-heart">💗</span>' if it["favorite"] else ""
-        c1, c2 = st.columns([6, 1])
-        with c1:
-            if sec == "STUDY":
-                ctype = STUDY_CONTENT_TYPES.get(it["content_type"], {"emoji": "🗂️"})
-                st.markdown(
-                    f"""<div class="study-item-card" style="border-left-color:{color};">
-                            <span class="study-item-title">{ctype['emoji']} {it['title']}</span> {heart}
-                            <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin etiqueta'}</span>
-                        </div>""",
-                    unsafe_allow_html=True,
-                )
-            else:
-                score = average_score(it["id"])
-                st.markdown(
-                    f"""<div class="book-card" style="border-left-color:{color};">
-                            <span class="book-title">{it['title']}</span> {heart}
-                            <span class="tag-chip" style="background:{color};">● {it['folder_name'] or 'Sin carpeta'}</span><br>
-                            <span class="stars">{stars_html(score)}</span> ({score}/5)
-                            {f'&nbsp;&nbsp;🔖 {it["current_chapter"]}' if it["current_chapter"] else ''}
-                        </div>""",
-                    unsafe_allow_html=True,
-                )
-        with c2:
-            if st.button("Abrir", key=f"fulllist_open_{it['id']}", use_container_width=True):
-                goto("detail", current_item=it["id"], current_section=sec)
+        idx += 1
 
 
 def render_section_favorites(sec):
-    """Hoja 3: solo los favoritos de ESTA sección."""
+    """Solo los favoritos de ESTA sección."""
     items = [i for i in get_all_items_section(sec) if i["favorite"]]
     if not items:
         st.info("Aún no marcaste favoritos en esta sección (˶˃˂˶)")
@@ -1740,8 +1872,7 @@ def render_section_favorites(sec):
 
 def render_links_list(sec):
     """🔗 Mis links — links SUELTOS que quieres guardar y que NO están asociados a
-    ningún título/libro (ej: sitios de referencia, blogs, tiendas, foros, etc.).
-    Letras grandes, igual que en la hoja de Lenguajes."""
+    ningún título/libro (ej: sitios de referencia, blogs, tiendas, foros, etc.)."""
     st.caption("Guarda aquí links de sitios que no están relacionados a tus títulos de BL — blogs, tiendas, foros, lo que sea ✨")
 
     with st.expander("➕ Agregar nuevo link"):
@@ -1777,9 +1908,101 @@ def render_links_list(sec):
                 st.rerun()
 
 
+# ============================================================
+# 🔗 Links de estudio — biblioteca tipo lista, con etiquetas pastilla
+# arriba (cantidad libre/independiente, como en la imagen de referencia)
+# ============================================================
+def render_study_links():
+    st.caption("Guarda aquí tus links de estudio con su propia etiqueta, para poder filtrarlos como una pequeña biblioteca 📚")
+
+    tags = ["Ver todo"] + get_study_link_tags()
+    if "study_links_selected_tag" not in st.session_state:
+        st.session_state["study_links_selected_tag"] = "Ver todo"
+
+    chunk = 6
+    for i in range(0, len(tags), chunk):
+        row_tags = tags[i:i + chunk]
+        cols = st.columns(len(row_tags))
+        for c, tag in zip(cols, row_tags):
+            with c:
+                is_sel = st.session_state["study_links_selected_tag"] == tag
+                if st.button(tag, key=f"tagpill_{tag}", use_container_width=True,
+                             type="primary" if is_sel else "secondary"):
+                    st.session_state["study_links_selected_tag"] = tag
+                    st.rerun()
+
+    with st.expander("➕ Agregar nuevo link de estudio"):
+        with st.form("add_study_link", clear_on_submit=True):
+            slt = st.text_input("Nombre / título")
+            slu = st.text_input("URL (https://...)")
+            sltag = st.text_input("Etiqueta (ej: Física, Historia, Apuntes... la que quieras)")
+            if st.form_submit_button("Guardar 💾") and slt.strip() and slu.strip():
+                add_study_link(slt.strip(), slu.strip(), sltag.strip() or "General")
+                st.success("¡Link guardado! ✨")
+                st.rerun()
+
+    st.markdown("---")
+    selected = st.session_state["study_links_selected_tag"]
+    links = get_study_links(selected)
+    if not links:
+        st.info("No hay links guardados aquí todavía (˶˃˂˶)")
+        return
+    for lk in links:
+        c1, c2 = st.columns([6, 1])
+        with c1:
+            st.markdown(
+                f"""<div class="study-link-row">
+                        <div>
+                            <div class="study-link-title">🔗 {lk['title']}</div>
+                            <a class="study-link-url" href="{lk['url']}" target="_blank">{lk['url']}</a>
+                        </div>
+                        <span class="badge-chip">{lk['tag']}</span>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            if st.button("🗑️", key=f"delstudylink_{lk['id']}", use_container_width=True):
+                delete_study_link(lk["id"])
+                st.rerun()
+
+
 def render_archivadores(sec, info):
     folders = get_folders(sec)
     folder_word = "etiqueta" if sec == "STUDY" else "archivador"
+
+    # ---- STUDY: imágenes sueltas visibles apenas entras (sin abrir un archivador),
+    # con diseño discontinuo tipo mosaico ----
+    if sec == "STUDY":
+        st.markdown('<div class="bento-card"><div class="bento-card-title">🖼️ Imágenes guardadas</div>', unsafe_allow_html=True)
+        with st.expander("➕ Adjuntar imagen aquí"):
+            sbytes, sname = image_input("Imagen (sube o pega con Ctrl+V)", key_prefix="studygallery_img")
+            if sbytes:
+                st.image(sbytes, width=180, caption="Vista previa")
+            scap = st.text_input("Descripción (opcional)", key="studygallery_cap")
+            if sbytes is not None and st.button("💾 Guardar imagen", key="studygallery_save"):
+                add_study_gallery_image(sbytes, scap.strip())
+                st.success("¡Imagen guardada! ✨")
+                st.rerun()
+
+        gallery_imgs = get_study_gallery()
+        if gallery_imgs:
+            html = '<div class="masonry-grid">'
+            for img in gallery_imgs:
+                html += f'<div class="masonry-item"><img src="data:image/png;base64,{img["image_b64"]}"></div>'
+            html += "</div>"
+            st.markdown(html, unsafe_allow_html=True)
+            with st.expander("🗑️ Eliminar alguna imagen"):
+                for img in gallery_imgs:
+                    cc1, cc2 = st.columns([5, 1])
+                    with cc1:
+                        st.caption(img["caption"] or f"Imagen #{img['id']} · {img['created_at']}")
+                    with cc2:
+                        if st.button("🗑️", key=f"delstudygal_{img['id']}", use_container_width=True):
+                            delete_study_gallery_image(img["id"])
+                            st.rerun()
+        else:
+            st.caption("Aún no hay imágenes guardadas aquí ✨ ¡adjunta la primera arriba!")
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander(f"🎀 Crear nueva {folder_word}"):
         with st.form(f"add_folder_{sec}", clear_on_submit=True):
@@ -1827,10 +2050,6 @@ def page_folder():
     with st.expander("➕ Agregar nuevo título aquí"):
         content_type = None
         if sec == "STUDY":
-            # IMPORTANTE: este selectbox va FUERA del st.form — dentro de un form,
-            # streamlit no vuelve a dibujar la página hasta que envías el formulario,
-            # así que el campo de link/archivo se quedaba "pegado" al tipo anterior.
-            # Al ponerlo aquí afuera, el cambio de tipo se refleja al instante.
             content_type = st.selectbox(
                 "Tipo de contenido",
                 options=list(STUDY_CONTENT_TYPES.keys()),
@@ -1838,12 +2057,10 @@ def page_folder():
                 key=f"content_type_select_{folder_id}",
             )
 
-        # La imagen (subida o pegada del portapapeles) también va FUERA del form
-        # por la misma razón — así la vista previa se actualiza al instante.
         pending_img_bytes, pending_img_name = None, None
         if sec != "STUDY" or content_type == "image":
             pending_img_bytes, pending_img_name = image_input(
-                "🖼️ Imagen (opcional, admite pegar del portapapeles)" if sec != "STUDY" else "🖼️ Imagen",
+                "🖼️ Portada / imagen (opcional, admite pegar del portapapeles)" if sec != "STUDY" else "🖼️ Imagen",
                 key_prefix=f"folderimg_{folder_id}",
             )
             if pending_img_bytes:
@@ -1920,8 +2137,12 @@ def page_folder():
                     )
             else:
                 score = average_score(it["id"])
+                cover_html = ""
+                if it["file_b64"]:
+                    cover_html = f'<img src="data:image/png;base64,{it["file_b64"]}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;float:right;margin-left:10px;">'
                 st.markdown(
                     f"""<div class="book-card">
+                            {cover_html}
                             <span class="book-title">{it['title']}</span> {heart}<br>
                             <span class="stars">{stars_html(score)}</span> ({score}/5)
                         </div>""",
@@ -1938,6 +2159,29 @@ def page_folder():
                 soft_delete_item(it["id"])
                 st.success("Movido a la papelera 🗑️")
                 st.rerun()
+
+# ============================================================
+# Bloque reutilizable: "¿Hasta dónde te quedaste?" (capítulo actual)
+# ============================================================
+def render_chapter_block(item_id, item):
+    st.markdown("### 🔖 ¿Hasta dónde te quedaste?")
+    cc1, cc2 = st.columns([4, 1])
+    with cc1:
+        chapter_val = st.text_input(
+            "Capítulo / página / episodio actual",
+            value=item["current_chapter"] or "",
+            key=f"chapter_{item_id}",
+            placeholder="ej: Capítulo 34, o Tomo 2 - pág. 120",
+            label_visibility="collapsed",
+        )
+    with cc2:
+        if st.button("💾 Guardar", key=f"savechap_{item_id}", use_container_width=True):
+            save_chapter(item_id, chapter_val.strip())
+            st.toast("¡Guardado! 🔖")
+            st.rerun()
+    if item["current_chapter"]:
+        st.caption(f"📍 Vas por: **{item['current_chapter']}**")
+
 
 # ============================================================
 # PÁGINA: DETALLE (hilo tipo tweets)
@@ -1964,14 +2208,34 @@ def page_detail():
             goto("section", current_section=sec)
             st.rerun()
 
-    # Layout: contenido principal a la izquierda, reproductor de Spotify a la
-    # derecha (solo en BL y STUDY) — así puedes tenerlo puesto mientras lees o estudias.
     if has_spotify_panel:
         main_col, spotify_col = st.columns([3, 1.3])
     else:
         main_col = st.container()
 
     with main_col:
+        # ---- Portada del libro: pegar/subir directo desde su ficha ----
+        if not is_study:
+            st.markdown("### 🖼️ Portada")
+            if item["file_b64"]:
+                st.markdown(
+                    f'<div class="cover-wrap"><img src="data:image/png;base64,{item["file_b64"]}"></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.caption("Todavía no tiene portada — agrégala abajo 🖤")
+            with st.expander("🖼️ Pegar / cambiar portada"):
+                cover_bytes, cover_name = image_input(
+                    "Portada (súbela o pégala con Ctrl+V)", key_prefix=f"cover_{item_id}",
+                )
+                if cover_bytes:
+                    st.image(cover_bytes, width=180, caption="Vista previa")
+                if cover_bytes is not None and st.button("💾 Guardar portada", key=f"savecover_{item_id}", use_container_width=True):
+                    set_item_cover(item_id, base64.b64encode(cover_bytes).decode("utf-8"), cover_name)
+                    st.success("¡Portada guardada! ✨")
+                    st.rerun()
+            st.markdown("---")
+
         if item["link"]:
             st.markdown(f"[{info['link_label']}]({item['link']})")
 
@@ -1990,30 +2254,15 @@ def page_detail():
             score = average_score(item_id)
             st.markdown(f"### {stars_html(score)}  —  {score}/5 · {len(get_entries(item_id))} entradas")
 
-            st.markdown("---")
-            st.markdown("### 🔖 ¿Hasta dónde te quedaste?")
-            cc1, cc2 = st.columns([4, 1])
-            with cc1:
-                chapter_val = st.text_input(
-                    "Capítulo / página / episodio actual",
-                    value=item["current_chapter"] or "",
-                    key=f"chapter_{item_id}",
-                    placeholder="ej: Capítulo 34, o Tomo 2 - pág. 120",
-                    label_visibility="collapsed",
-                )
-            with cc2:
-                if st.button("💾 Guardar", key=f"savechap_{item_id}", use_container_width=True):
-                    save_chapter(item_id, chapter_val.strip())
-                    st.toast("¡Guardado! 🔖")
-                    st.rerun()
-            if item["current_chapter"]:
-                st.caption(f"📍 Vas por: **{item['current_chapter']}**")
+            # Para BOOKS (sin panel de Spotify) el capítulo va aquí mismo.
+            # Para BL, el capítulo se movió debajo del reproductor de Spotify (columna lateral).
+            if sec != "BL":
+                st.markdown("---")
+                render_chapter_block(item_id, item)
 
         st.markdown("---")
         st.markdown("### ✏️ Nueva entrada" if not is_study else "### ✏️ Notas sobre este contenido")
 
-        # La imagen/gif (subida O pegada directo del portapapeles) va FUERA del
-        # form para que la vista previa aparezca al instante.
         entry_img_bytes, entry_img_name = image_input(
             "Imagen o GIF (opcional) — súbela o pégala con Ctrl+V",
             key_prefix=f"entryimg_{item_id}",
@@ -2050,7 +2299,8 @@ def page_detail():
                     unsafe_allow_html=True,
                 )
                 if e["image_b64"]:
-                    st.image(base64.b64decode(e["image_b64"]), width=280)
+                    # Tamaño reducido (antes 280px) — abarcaba demasiado espacio en el hilo.
+                    st.image(base64.b64decode(e["image_b64"]), width=180)
             with c2:
                 if st.button("🗑️", key=f"delentry_{e['id']}"):
                     delete_entry(e["id"])
@@ -2080,7 +2330,15 @@ def page_detail():
                 render_spotify_embed(embed_url)
             else:
                 st.caption("Pega arriba un link de Spotify para poder darle play mientras lees o estudias 🎧✨")
-            st.markdown("</div></div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # ---- Capítulo actual, AHORA debajo del reproductor de Spotify (solo BL) ----
+            if sec == "BL":
+                st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+                render_chapter_block(item_id, item)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ============================================================
@@ -2172,7 +2430,6 @@ def render_schedule_block(kind, title):
         with cc1:
             day = st.selectbox("Día", days, key=f"day_{kind}")
         with cc2:
-            # Hora predeterminada: eliges de una lista (cada 30 min, con AM/PM) en vez de escribirla a mano
             start_default = "08:00 AM" if "08:00 AM" in TIME_SLOTS else TIME_SLOTS[0]
             t_start = st.selectbox("Desde", TIME_SLOTS, index=TIME_SLOTS.index(start_default), key=f"start_{kind}")
         with cc3:
@@ -2188,8 +2445,6 @@ def render_schedule_block(kind, title):
 
 
 def render_pomodoro():
-    """Temporizador Pomodoro: cuenta visualmente en vivo (JS) y, al completar la sesión,
-    un botón nativo de Streamlit registra la sesión de estudio (esto es lo que alimenta la racha)."""
     st.markdown('<div class="dash-card"><div class="dash-title">🍅 Pomodoro</div>', unsafe_allow_html=True)
     minutes = st.selectbox("Duración de la sesión", [15, 25, 30, 45, 50], index=1, key="pomo_minutes")
     today_min = get_today_study_minutes()
@@ -2311,8 +2566,6 @@ def page_study_dashboard():
 
 # ============================================================
 # PÁGINA: LENGUAJES (hoja vinculada a STUDY, no anidada dentro de ella)
-# Galería de tarjetas para repasar vocabulario / gramática, guardar videos,
-# listas de reproducción, imágenes grandes y archivos adjuntos.
 # ============================================================
 def page_languages():
     st.markdown(
@@ -2330,8 +2583,6 @@ def page_languages():
     selected_tag = st.selectbox("Filtrar por etiqueta", tags, key="lang_tag_filter")
 
     with st.expander("➕ Agregar nueva tarjeta"):
-        # IMPORTANTE: el selector de tipo va FUERA del st.form para que el campo
-        # de abajo (imagen / link / archivo) cambie al instante al elegir otro tipo.
         ctype = st.selectbox(
             "Tipo de tarjeta",
             options=list(LANG_CONTENT_TYPES.keys()),
@@ -2339,7 +2590,6 @@ def page_languages():
             key="lang_ctype",
         )
 
-        # La imagen (subida o pegada del portapapeles) también va FUERA del form.
         limg_bytes, limg_name = None, None
         lattach_bytes, lattach_name = None, None
         if ctype == "image":
