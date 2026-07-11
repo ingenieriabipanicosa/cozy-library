@@ -10,8 +10,17 @@ import sqlite3
 import base64
 import json
 import datetime
+import io
 import requests
 from pathlib import Path
+
+# Pegar imágenes/gifs directo del portapapeles (sin guardarlas antes) —
+# requiere: pip install streamlit-paste-button
+try:
+    from streamlit_paste_button import paste_image_button as _paste_image_button
+    PASTE_AVAILABLE = True
+except ImportError:
+    PASTE_AVAILABLE = False
 
 # ============================================================
 # CONFIG GENERAL
@@ -566,6 +575,29 @@ def inject_css():
             border-radius: 50px !important;
             font-weight: 700 !important;
         }
+
+        /* ---- Pegar imagen/gif del portapapeles ---- */
+        .paste-zone {
+            border: 2px dashed #f3b8d2; border-radius: 16px; padding: 10px 14px;
+            background: #fff6fa; margin-bottom: 8px; font-size: 12px; color:#a9647f;
+        }
+
+        /* ---- Tareas (to-do) en el home ---- */
+        .task-home-card {
+            background: white; border-radius: 14px; padding: 10px 14px; margin-bottom: 8px;
+            border-left: 6px solid #C9B79B; box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+        .task-home-title { font-weight:600; font-size:13px; color:#4A2E4D; }
+        .task-home-meta { font-size: 11px; color:#a9647f; }
+        .priority-chip {
+            display:inline-block; padding:1px 9px; border-radius:10px; font-size:10px;
+            color:white; font-weight:700; margin-left:6px;
+        }
+
+        /* ---- Spotify embed lateral en el hilo ---- */
+        .spotify-side-wrap {
+            position: sticky; top: 12px;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -717,6 +749,7 @@ def migrate_db():
             ("content_type", "TEXT"),
             ("file_b64", "TEXT"),
             ("file_name", "TEXT"),
+            ("spotify_url", "TEXT"),
         ],
         "profile": [
             ("avatar_b64", "TEXT"),
@@ -726,6 +759,13 @@ def migrate_db():
             ("url", "TEXT"),
             ("file_b64", "TEXT"),
             ("file_name", "TEXT"),
+        ],
+        "study_todos": [
+            ("due_date", "TEXT"),
+            ("priority", "TEXT"),
+        ],
+        "entries": [
+            ("image_name", "TEXT"),
         ],
     }
 
@@ -752,16 +792,17 @@ def init_db():
             section TEXT NOT NULL, title TEXT NOT NULL, link TEXT,
             folder_id INTEGER, favorite INTEGER DEFAULT 0,
             trashed INTEGER DEFAULT 0, created_at TEXT, content_type TEXT,
-            file_b64 TEXT, file_name TEXT)""")
+            file_b64 TEXT, file_name TEXT, spotify_url TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_id INTEGER NOT NULL, date TEXT, text TEXT,
-            image_b64 TEXT, stars INTEGER)""")
+            image_b64 TEXT, stars INTEGER, image_name TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS schedule (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kind TEXT NOT NULL, day TEXT, time TEXT, subject TEXT, color TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS study_todos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, done INTEGER DEFAULT 0)""")
+            id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, done INTEGER DEFAULT 0,
+            due_date TEXT, priority TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS study_notes (
             id INTEGER PRIMARY KEY, content TEXT)""")
     run("""CREATE TABLE IF NOT EXISTS section_images (
@@ -837,8 +878,8 @@ def get_gallery_images(limit=8):
     return run("SELECT * FROM home_gallery ORDER BY id DESC LIMIT ?", (limit,), fetch=True)
 
 
-def add_gallery_image(image_file, caption):
-    b64 = base64.b64encode(image_file.read()).decode("utf-8")
+def add_gallery_image(image_bytes, caption):
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
     run("INSERT INTO home_gallery (image_b64, caption, created_at) VALUES (?,?,?)",
         (b64, caption, datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
 
@@ -894,11 +935,15 @@ def get_all_items_section(section):
 
 
 # ---------- Items ----------
-def add_item(section, title, link, folder_id, favorite, content_type=None, file_b64=None, file_name=None):
+def add_item(section, title, link, folder_id, favorite, content_type=None, file_b64=None, file_name=None, spotify_url=None):
     run("""INSERT INTO items (section, title, link, folder_id, favorite, trashed, created_at,
-            content_type, file_b64, file_name) VALUES (?,?,?,?,?,0,?,?,?,?)""",
+            content_type, file_b64, file_name, spotify_url) VALUES (?,?,?,?,?,0,?,?,?,?,?)""",
         (section, title, link, folder_id, int(favorite),
-         datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), content_type, file_b64, file_name))
+         datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), content_type, file_b64, file_name, spotify_url))
+
+
+def set_item_spotify(item_id, spotify_url):
+    run("UPDATE items SET spotify_url=? WHERE id=?", (spotify_url, item_id))
 
 
 def get_items(section, folder_id):
@@ -995,10 +1040,12 @@ def get_trashed_items():
 
 
 # ---------- Entries (hilo) ----------
-def add_entry(item_id, text, image_file, stars):
-    img_b64 = base64.b64encode(image_file.read()).decode("utf-8") if image_file is not None else None
-    run("INSERT INTO entries (item_id, date, text, image_b64, stars) VALUES (?,?,?,?,?)",
-        (item_id, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), text, img_b64, stars))
+def add_entry(item_id, text, image_bytes, stars, image_name=None):
+    """image_bytes: bytes ya leídos (desde archivo subido O desde una imagen/gif pegada
+    del portapapeles) — o None si no hay imagen."""
+    img_b64 = base64.b64encode(image_bytes).decode("utf-8") if image_bytes else None
+    run("INSERT INTO entries (item_id, date, text, image_b64, stars, image_name) VALUES (?,?,?,?,?,?)",
+        (item_id, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), text, img_b64, stars, image_name))
 
 
 def get_entries(item_id):
@@ -1035,11 +1082,20 @@ def delete_schedule_row(row_id):
 
 
 def get_todos():
-    return run("SELECT * FROM study_todos ORDER BY id", fetch=True)
+    return run("SELECT * FROM study_todos ORDER BY (due_date IS NULL), due_date, id", fetch=True)
 
 
-def add_todo(text):
-    run("INSERT INTO study_todos (text, done) VALUES (?, 0)", (text,))
+def get_pending_todos(limit=6):
+    """Tareas pendientes (no completadas), ordenadas por fecha límite — para mostrarlas en el home."""
+    return run(
+        "SELECT * FROM study_todos WHERE done=0 ORDER BY (due_date IS NULL), due_date, id LIMIT ?",
+        (limit,), fetch=True,
+    )
+
+
+def add_todo(text, due_date=None, priority="Media"):
+    run("INSERT INTO study_todos (text, done, due_date, priority) VALUES (?, 0, ?, ?)",
+        (text, due_date, priority))
 
 
 def toggle_todo(todo_id, current):
@@ -1071,17 +1127,13 @@ def get_language_tags():
     return [r["tag"] for r in rows] if rows else []
 
 
-def add_language_card(image_file, caption, tag, content_type="image", url=None, attach_file=None):
-    b64 = base64.b64encode(image_file.read()).decode("utf-8") if image_file is not None else None
-    file_b64 = None
-    file_name = None
-    if attach_file is not None:
-        file_b64 = base64.b64encode(attach_file.read()).decode("utf-8")
-        file_name = attach_file.name
+def add_language_card(image_bytes, caption, tag, content_type="image", url=None, file_bytes=None, file_name=None):
+    b64 = base64.b64encode(image_bytes).decode("utf-8") if image_bytes else None
+    fb64 = base64.b64encode(file_bytes).decode("utf-8") if file_bytes else None
     run("""INSERT INTO language_cards (image_b64, caption, tag, created_at, content_type, url, file_b64, file_name)
            VALUES (?,?,?,?,?,?,?,?)""",
         (b64, caption, tag, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-         content_type, url, file_b64, file_name))
+         content_type, url, fb64, file_name))
 
 
 def delete_language_card(card_id):
@@ -1133,6 +1185,107 @@ def save_db_to_github():
             st.sidebar.error(f"Error GitHub: {r2.status_code}")
     except Exception as e:
         st.sidebar.error(f"Error al guardar en GitHub: {e}")
+
+
+# ============================================================
+# Pegar imagen / gif del portapapeles (Ctrl+V) — sin necesidad
+# de tenerla guardada antes en el celular/pc
+# ============================================================
+def paste_image_widget(key, label="📋 Pegar imagen/gif copiada"):
+    """Muestra un botoncito para pegar una imagen o gif que ya tengas copiada
+    (Ctrl+C en otra pestaña, capturas, etc.) sin necesidad de guardarla primero.
+    Devuelve bytes en formato PNG, o None si no se pegó nada."""
+    if not PASTE_AVAILABLE:
+        st.markdown(
+            '<div class="paste-zone">💡 Para pegar imágenes/gifs directo del portapapeles, '
+            'instala el paquete <code>streamlit-paste-button</code> '
+            '(agrega <code>streamlit-paste-button</code> a tu requirements.txt).</div>',
+            unsafe_allow_html=True,
+        )
+        return None
+    result = _paste_image_button(label=label, key=key)
+    if result is not None and result.image_data is not None:
+        buf = io.BytesIO()
+        result.image_data.save(buf, format="PNG")
+        return buf.getvalue()
+    return None
+
+
+def image_input(label, key_prefix, types=None):
+    """Combina un file_uploader normal con el botón de 'pegar del portapapeles'.
+    Devuelve (bytes, nombre_archivo) o (None, None). Úsalo FUERA de un st.form."""
+    types = types or ["png", "jpg", "jpeg", "webp", "gif"]
+    up = st.file_uploader(label, type=types, key=f"{key_prefix}_uploader")
+    pasted = paste_image_widget(key=f"{key_prefix}_paste")
+    if up is not None:
+        return up.read(), up.name
+    if pasted is not None:
+        return pasted, "pegado.png"
+    return None, None
+
+
+# ============================================================
+# Horarios predeterminados (para no tener que escribir la hora a mano)
+# ============================================================
+def generate_time_slots():
+    """Lista de horas cada 30 min en formato 12h con AM/PM: '06:00 AM', '06:30 AM', ..."""
+    slots = []
+    for h in range(24):
+        for m in (0, 30):
+            t = datetime.time(hour=h, minute=m)
+            slots.append(t.strftime("%I:%M %p"))
+    return slots
+
+
+TIME_SLOTS = generate_time_slots()
+
+
+# ============================================================
+# Prioridad de tareas (colores)
+# ============================================================
+PRIORITY_COLORS = {
+    "Alta": "#E0607E",
+    "Media": "#F0B429",
+    "Baja": "#8BC9A3",
+}
+PRIORITY_OPTIONS = ["Alta", "Media", "Baja"]
+
+
+def format_due_date(due_date_str):
+    if not due_date_str:
+        return "Sin fecha"
+    try:
+        d = datetime.datetime.strptime(due_date_str, "%Y-%m-%d").date()
+        return d.strftime("%d %b")
+    except Exception:
+        return due_date_str
+
+
+# ============================================================
+# Spotify — convertir un link normal en un link de embed
+# ============================================================
+def to_spotify_embed_url(url):
+    if not url:
+        return None
+    url = url.strip()
+    if "open.spotify.com" not in url:
+        return None
+    embed = url.replace("open.spotify.com/", "open.spotify.com/embed/")
+    if "?" in embed:
+        embed = embed.split("?")[0]
+    return embed
+
+
+def render_spotify_embed(embed_url, height=352):
+    components.html(
+        f"""
+        <iframe style="border-radius:16px" src="{embed_url}" width="100%" height="{height}"
+            frameBorder="0" allowfullscreen=""
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"></iframe>
+        """,
+        height=height + 15,
+    )
 
 
 # ============================================================
@@ -1341,9 +1494,28 @@ def page_home():
         )
 
     # ------------------------------------------------------------------
-    # ZONA CENTRAL — colección de favoritos + racha (analogía a suscripción)
+    # ZONA CENTRAL — tareas pendientes de STUDY + colección de favoritos + racha
     # ------------------------------------------------------------------
     with middle:
+        # ---- Tareas pendientes de STUDY (con fecha límite y color de prioridad) ----
+        st.markdown('<div class="bento-card"><div class="bento-card-title">✅ Tareas pendientes</div>', unsafe_allow_html=True)
+        pending = get_pending_todos(6)
+        if not pending:
+            st.caption("¡No tienes tareas pendientes! ✨ agrégalas desde STUDY → Dashboard")
+        for t in pending:
+            color = PRIORITY_COLORS.get(t["priority"] or "Media", "#C9B79B")
+            st.markdown(
+                f"""<div class="task-home-card" style="border-left-color:{color};">
+                        <span class="task-home-title">{t['text']}</span>
+                        <span class="priority-chip" style="background:{color};">{t['priority'] or 'Media'}</span><br>
+                        <span class="task-home-meta">📅 {format_due_date(t['due_date'])}</span>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+        if st.button("📝 Ir al Dashboard de STUDY", use_container_width=True, key="home_goto_study"):
+            goto("section", current_section="STUDY")
+        st.markdown("</div>", unsafe_allow_html=True)
+
         st.markdown('<div class="bento-card"><div class="bento-card-title">💗 Colección</div>', unsafe_allow_html=True)
         favs = get_favorites_all()
         if not favs:
@@ -1420,10 +1592,12 @@ def page_home():
                     delete_gallery_image(g["id"])
                     st.rerun()
         with st.expander("➕ Agregar imagen / gif"):
-            gimg = st.file_uploader("Imagen o GIF", type=["png", "jpg", "jpeg", "webp", "gif"], key="gallery_up")
+            gbytes, gname = image_input("Imagen o GIF", key_prefix="gallery_img")
+            if gbytes:
+                st.image(gbytes, width=160, caption="Vista previa")
             gcap = st.text_input("Descripción (opcional)", key="gallery_cap")
-            if gimg is not None and st.button("💾 Guardar en galería", key="gallery_save"):
-                add_gallery_image(gimg, gcap.strip())
+            if gbytes is not None and st.button("💾 Guardar en galería", key="gallery_save"):
+                add_gallery_image(gbytes, gcap.strip())
                 st.success("¡Agregado a la galería! ✨")
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1664,16 +1838,26 @@ def page_folder():
                 key=f"content_type_select_{folder_id}",
             )
 
+        # La imagen (subida o pegada del portapapeles) también va FUERA del form
+        # por la misma razón — así la vista previa se actualiza al instante.
+        pending_img_bytes, pending_img_name = None, None
+        if sec != "STUDY" or content_type == "image":
+            pending_img_bytes, pending_img_name = image_input(
+                "🖼️ Imagen (opcional, admite pegar del portapapeles)" if sec != "STUDY" else "🖼️ Imagen",
+                key_prefix=f"folderimg_{folder_id}",
+            )
+            if pending_img_bytes:
+                st.image(pending_img_bytes, width=160, caption="Vista previa")
+        pending_file = None
+        if sec == "STUDY" and content_type == "doc":
+            pending_file = st.file_uploader("📎 Adjuntar archivo (PDF, doc, etc.)", type=None, key=f"attach_{folder_id}")
+
         with st.form(f"add_item_{folder_id}", clear_on_submit=True):
             title = st.text_input("Título")
+            spotify_url = None
             if sec == "STUDY":
-                needs_file = content_type in ("doc", "image")
-                attach = None
                 link = ""
-                if needs_file:
-                    file_label = "🖼️ Adjuntar imagen" if content_type == "image" else "📎 Adjuntar archivo (PDF, doc, etc.)"
-                    attach = st.file_uploader(file_label, type=None, key=f"attach_{folder_id}")
-                else:
+                if content_type in ("video", "playlist", "link"):
                     link_help = {
                         "video": "🔗 Pega aquí el link del video de YouTube",
                         "playlist": "🔗 Pega aquí el link de la lista de reproducción",
@@ -1682,16 +1866,24 @@ def page_folder():
                     link = st.text_input(link_help)
                 favorite = st.checkbox("💗 Marcar como importante")
             else:
-                attach = None
                 link = st.text_input(info["link_label"])
                 favorite = st.checkbox("💗 Marcar como favorito")
+                if sec == "BL":
+                    spotify_url = st.text_input("🎵 Link de Spotify (opcional, para escuchar mientras lees)")
             if st.form_submit_button("Guardar 💾") and title.strip():
                 file_b64 = None
                 file_name = None
-                if attach is not None:
-                    file_b64 = base64.b64encode(attach.read()).decode("utf-8")
-                    file_name = attach.name
-                add_item(sec, title.strip(), link.strip(), folder_id, favorite, content_type, file_b64, file_name)
+                if content_type == "image" and pending_img_bytes:
+                    file_b64 = base64.b64encode(pending_img_bytes).decode("utf-8")
+                    file_name = pending_img_name
+                elif pending_file is not None:
+                    file_b64 = base64.b64encode(pending_file.read()).decode("utf-8")
+                    file_name = pending_file.name
+                elif sec != "STUDY" and pending_img_bytes:
+                    file_b64 = base64.b64encode(pending_img_bytes).decode("utf-8")
+                    file_name = pending_img_name
+                add_item(sec, title.strip(), link.strip(), folder_id, favorite, content_type,
+                          file_b64, file_name, spotify_url.strip() if spotify_url else None)
                 st.success("¡Guardado! (♡ˊ͈ ꒳ ˋ͈)")
                 st.rerun()
 
@@ -1759,6 +1951,7 @@ def page_detail():
         return
     info = SECTIONS[sec]
     is_study = sec == "STUDY"
+    has_spotify_panel = sec in ("BL", "STUDY")
 
     col1, col2 = st.columns([5, 1])
     with col1:
@@ -1771,85 +1964,123 @@ def page_detail():
             goto("section", current_section=sec)
             st.rerun()
 
-    if item["link"]:
-        st.markdown(f"[{info['link_label']}]({item['link']})")
+    # Layout: contenido principal a la izquierda, reproductor de Spotify a la
+    # derecha (solo en BL y STUDY) — así puedes tenerlo puesto mientras lees o estudias.
+    if has_spotify_panel:
+        main_col, spotify_col = st.columns([3, 1.3])
+    else:
+        main_col = st.container()
 
-    if is_study:
-        if item["content_type"] == "image" and item["file_b64"]:
-            st.image(base64.b64decode(item["file_b64"]), use_container_width=True)
-        elif item["file_b64"]:
-            st.download_button(
-                "📎 Descargar archivo adjunto",
-                data=base64.b64decode(item["file_b64"]),
-                file_name=item["file_name"] or "archivo",
-                use_container_width=True,
-            )
+    with main_col:
+        if item["link"]:
+            st.markdown(f"[{info['link_label']}]({item['link']})")
 
-    if not is_study:
-        score = average_score(item_id)
-        st.markdown(f"### {stars_html(score)}  —  {score}/5 · {len(get_entries(item_id))} entradas")
+        if is_study:
+            if item["content_type"] == "image" and item["file_b64"]:
+                st.image(base64.b64decode(item["file_b64"]), use_container_width=True)
+            elif item["file_b64"]:
+                st.download_button(
+                    "📎 Descargar archivo adjunto",
+                    data=base64.b64decode(item["file_b64"]),
+                    file_name=item["file_name"] or "archivo",
+                    use_container_width=True,
+                )
+
+        if not is_study:
+            score = average_score(item_id)
+            st.markdown(f"### {stars_html(score)}  —  {score}/5 · {len(get_entries(item_id))} entradas")
+
+            st.markdown("---")
+            st.markdown("### 🔖 ¿Hasta dónde te quedaste?")
+            cc1, cc2 = st.columns([4, 1])
+            with cc1:
+                chapter_val = st.text_input(
+                    "Capítulo / página / episodio actual",
+                    value=item["current_chapter"] or "",
+                    key=f"chapter_{item_id}",
+                    placeholder="ej: Capítulo 34, o Tomo 2 - pág. 120",
+                    label_visibility="collapsed",
+                )
+            with cc2:
+                if st.button("💾 Guardar", key=f"savechap_{item_id}", use_container_width=True):
+                    save_chapter(item_id, chapter_val.strip())
+                    st.toast("¡Guardado! 🔖")
+                    st.rerun()
+            if item["current_chapter"]:
+                st.caption(f"📍 Vas por: **{item['current_chapter']}**")
 
         st.markdown("---")
-        st.markdown("### 🔖 ¿Hasta dónde te quedaste?")
-        cc1, cc2 = st.columns([4, 1])
-        with cc1:
-            chapter_val = st.text_input(
-                "Capítulo / página / episodio actual",
-                value=item["current_chapter"] or "",
-                key=f"chapter_{item_id}",
-                placeholder="ej: Capítulo 34, o Tomo 2 - pág. 120",
-                label_visibility="collapsed",
-            )
-        with cc2:
-            if st.button("💾 Guardar", key=f"savechap_{item_id}", use_container_width=True):
-                save_chapter(item_id, chapter_val.strip())
-                st.toast("¡Guardado! 🔖")
-                st.rerun()
-        if item["current_chapter"]:
-            st.caption(f"📍 Vas por: **{item['current_chapter']}**")
+        st.markdown("### ✏️ Nueva entrada" if not is_study else "### ✏️ Notas sobre este contenido")
 
-    st.markdown("---")
-    st.markdown("### ✏️ Nueva entrada" if not is_study else "### ✏️ Notas sobre este contenido")
-    with st.form("new_entry_form", clear_on_submit=True):
-        text = st.text_area("¿Qué quieres anotar hoy?")
-        if is_study:
-            stars = 0
-        else:
-            stars = st.slider("Puntuación de esta entrada", 1, 5, 5)
-        image = st.file_uploader("Imagen o GIF (opcional)", type=["png", "jpg", "jpeg", "gif", "webp"])
-        if st.form_submit_button("Publicar 🌸") and text.strip():
-            add_entry(item_id, text.strip(), image, stars if stars else None)
-            st.success("¡Entrada guardada!")
-            st.rerun()
+        # La imagen/gif (subida O pegada directo del portapapeles) va FUERA del
+        # form para que la vista previa aparezca al instante.
+        entry_img_bytes, entry_img_name = image_input(
+            "Imagen o GIF (opcional) — súbela o pégala con Ctrl+V",
+            key_prefix=f"entryimg_{item_id}",
+        )
+        if entry_img_bytes:
+            st.image(entry_img_bytes, width=220, caption="Vista previa")
 
-    st.markdown("---")
-    st.markdown("### 🧵 Hilo")
-    entries = get_entries(item_id)
-    if not entries:
-        st.info("Aún no hay entradas ( ˶°ᄆ°) !! ¡escribe la primera arriba!")
-    for e in entries:
-        c1, c2 = st.columns([6, 1])
-        with c1:
-            stars_row = f'<span class="stars">{"⭐"*e["stars"]}{"☆"*(5-e["stars"])}</span><br>' if e["stars"] else ""
-            st.markdown(
-                f"""<div class="tweet-card">
-                        <span class="tweet-date">{e['date']}</span><br>
-                        {stars_row}
-                        <p>{e['text']}</p>
-                    </div>""",
-                unsafe_allow_html=True,
-            )
-            if e["image_b64"]:
-                st.image(base64.b64decode(e["image_b64"]), width=280)
-        with c2:
-            if st.button("🗑️", key=f"delentry_{e['id']}"):
-                delete_entry(e["id"])
+        with st.form("new_entry_form", clear_on_submit=True):
+            text = st.text_area("¿Qué quieres anotar hoy?")
+            if is_study:
+                stars = 0
+            else:
+                stars = st.slider("Puntuación de esta entrada", 1, 5, 5)
+            if st.form_submit_button("Publicar 🌸") and text.strip():
+                add_entry(item_id, text.strip(), entry_img_bytes, stars if stars else None, entry_img_name)
+                st.success("¡Entrada guardada!")
                 st.rerun()
 
-    st.markdown("---")
-    if st.button("⬅️ Volver"):
-        goto("folder", current_section=sec, current_folder=item["folder_id"],
-             current_folder_name=next((f["name"] for f in get_folders(sec) if f["id"] == item["folder_id"]), ""))
+        st.markdown("---")
+        st.markdown("### 🧵 Hilo")
+        entries = get_entries(item_id)
+        if not entries:
+            st.info("Aún no hay entradas ( ˶°ᄆ°) !! ¡escribe la primera arriba!")
+        for e in entries:
+            c1, c2 = st.columns([6, 1])
+            with c1:
+                stars_row = f'<span class="stars">{"⭐"*e["stars"]}{"☆"*(5-e["stars"])}</span><br>' if e["stars"] else ""
+                st.markdown(
+                    f"""<div class="tweet-card">
+                            <span class="tweet-date">{e['date']}</span><br>
+                            {stars_row}
+                            <p>{e['text']}</p>
+                        </div>""",
+                    unsafe_allow_html=True,
+                )
+                if e["image_b64"]:
+                    st.image(base64.b64decode(e["image_b64"]), width=280)
+            with c2:
+                if st.button("🗑️", key=f"delentry_{e['id']}"):
+                    delete_entry(e["id"])
+                    st.rerun()
+
+        st.markdown("---")
+        if st.button("⬅️ Volver"):
+            goto("folder", current_section=sec, current_folder=item["folder_id"],
+                 current_folder_name=next((f["name"] for f in get_folders(sec) if f["id"] == item["folder_id"]), ""))
+
+    if has_spotify_panel:
+        with spotify_col:
+            st.markdown('<div class="spotify-side-wrap">', unsafe_allow_html=True)
+            st.markdown('<div class="dash-card"><div class="dash-title">🎵 Spotify</div>', unsafe_allow_html=True)
+            spotify_val = st.text_input(
+                "Pega el link de una canción, playlist o álbum",
+                value=item["spotify_url"] or "",
+                key=f"spotify_input_{item_id}",
+                placeholder="https://open.spotify.com/...",
+            )
+            if st.button("💾 Guardar link de Spotify", key=f"spotify_save_{item_id}", use_container_width=True):
+                set_item_spotify(item_id, spotify_val.strip())
+                st.success("¡Listo! 🎧")
+                st.rerun()
+            embed_url = to_spotify_embed_url(item["spotify_url"])
+            if embed_url:
+                render_spotify_embed(embed_url)
+            else:
+                st.caption("Pega arriba un link de Spotify para poder darle play mientras lees o estudias 🎧✨")
+            st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 # ============================================================
@@ -1937,15 +2168,20 @@ def render_schedule_block(kind, title):
         st.caption("Sin horas agregadas todavía.")
 
     with st.form(f"add_sched_{kind}", clear_on_submit=True):
-        cc1, cc2, cc3 = st.columns(3)
+        cc1, cc2, cc3, cc4 = st.columns([2, 1.4, 1.4, 2])
         with cc1:
             day = st.selectbox("Día", days, key=f"day_{kind}")
         with cc2:
-            time = st.text_input("Hora (ej: 8:00 - 9:00)", key=f"time_{kind}")
+            # Hora predeterminada: eliges de una lista (cada 30 min, con AM/PM) en vez de escribirla a mano
+            start_default = "08:00 AM" if "08:00 AM" in TIME_SLOTS else TIME_SLOTS[0]
+            t_start = st.selectbox("Desde", TIME_SLOTS, index=TIME_SLOTS.index(start_default), key=f"start_{kind}")
         with cc3:
+            end_default = "09:00 AM" if "09:00 AM" in TIME_SLOTS else TIME_SLOTS[-1]
+            t_end = st.selectbox("Hasta", TIME_SLOTS, index=TIME_SLOTS.index(end_default), key=f"end_{kind}")
+        with cc4:
             subject = st.text_input("Materia / actividad", key=f"subj_{kind}")
         if st.form_submit_button("➕ Agregar") and subject.strip():
-            add_schedule_row(kind, day, time, subject.strip(), "#F7B8D2")
+            add_schedule_row(kind, day, f"{t_start} - {t_end}", subject.strip(), "#F7B8D2")
             st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -2031,9 +2267,16 @@ def page_study_dashboard():
     with col3:
         st.markdown('<div class="dash-card"><div class="dash-title">✅ To-Do</div>', unsafe_allow_html=True)
         for t in get_todos():
+            color = PRIORITY_COLORS.get(t["priority"] or "Media", "#C9B79B")
             cc1, cc2 = st.columns([5, 1])
             with cc1:
-                checked = st.checkbox(t["text"], value=bool(t["done"]), key=f"todo_{t['id']}")
+                label = f"{t['text']}"
+                checked = st.checkbox(label, value=bool(t["done"]), key=f"todo_{t['id']}")
+                st.markdown(
+                    f"""<span class="priority-chip" style="background:{color};">{t['priority'] or 'Media'}</span>
+                        <span class="task-home-meta">&nbsp;📅 {format_due_date(t['due_date'])}</span>""",
+                    unsafe_allow_html=True,
+                )
                 if checked != bool(t["done"]):
                     toggle_todo(t["id"], t["done"])
                     st.rerun()
@@ -2041,10 +2284,19 @@ def page_study_dashboard():
                 if st.button("🗑️", key=f"deltodo_{t['id']}"):
                     delete_todo(t["id"])
                     st.rerun()
-        new_todo = st.text_input("Nueva tarea", key="new_todo_input")
-        if st.button("➕ Agregar tarea") and new_todo.strip():
-            add_todo(new_todo.strip())
-            st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.form("add_todo_form", clear_on_submit=True):
+            new_todo = st.text_input("Nueva tarea")
+            tc1, tc2, tc3 = st.columns([1.3, 1.3, 1])
+            with tc1:
+                no_date = st.checkbox("Sin fecha límite", value=False, key="todo_nodate")
+            with tc2:
+                due = st.date_input("¿Hasta cuándo?", value=datetime.date.today(), key="todo_due")
+            with tc3:
+                priority = st.selectbox("Importancia", PRIORITY_OPTIONS, index=1, key="todo_priority")
+            if st.form_submit_button("➕ Agregar tarea") and new_todo.strip():
+                add_todo(new_todo.strip(), None if no_date else due.strftime("%Y-%m-%d"), priority)
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col4:
@@ -2086,31 +2338,40 @@ def page_languages():
             format_func=lambda k: f"{LANG_CONTENT_TYPES[k]['emoji']} {LANG_CONTENT_TYPES[k]['label']}",
             key="lang_ctype",
         )
+
+        # La imagen (subida o pegada del portapapeles) también va FUERA del form.
+        limg_bytes, limg_name = None, None
+        lattach_bytes, lattach_name = None, None
+        if ctype == "image":
+            limg_bytes, limg_name = image_input("Imagen (vocabulario, apuntes, captura, etc.)", key_prefix="lang_img")
+        elif ctype in ("video", "playlist", "link"):
+            limg_bytes, limg_name = image_input("Miniatura opcional", key_prefix="lang_thumb")
+        elif ctype == "file":
+            lattach = st.file_uploader("📎 Archivo a adjuntar (PDF, doc, etc.)", type=None, key="lang_file")
+            if lattach is not None:
+                lattach_bytes, lattach_name = lattach.read(), lattach.name
+        if limg_bytes:
+            st.image(limg_bytes, width=160, caption="Vista previa")
+
         with st.form("add_lang_card", clear_on_submit=True):
             lcap = st.text_input("Descripción / traducción (opcional)")
             ltag = st.text_input("Etiqueta (ej: Inglés, Francés, Gramática...)")
 
-            limg = None
             lurl = None
-            lattach = None
-            if ctype == "image":
-                limg = st.file_uploader("Imagen (vocabulario, apuntes, captura, etc.)", type=["png", "jpg", "jpeg", "webp", "gif"])
-            elif ctype in ("video", "playlist", "link"):
+            if ctype in ("video", "playlist", "link"):
                 lurl = st.text_input("🔗 URL (link del video, playlist o página)")
-                limg = st.file_uploader("Miniatura opcional", type=["png", "jpg", "jpeg", "webp", "gif"], key="lang_thumb")
             elif ctype == "file":
-                lattach = st.file_uploader("📎 Archivo a adjuntar (PDF, doc, etc.)", type=None, key="lang_file")
                 lurl = st.text_input("🔗 Link opcional (Drive, Notion, etc.)")
 
             submitted = st.form_submit_button("Guardar 💾")
             if submitted:
-                valid = (ctype == "image" and limg is not None) or \
+                valid = (ctype == "image" and limg_bytes is not None) or \
                         (ctype in ("video", "playlist", "link") and lurl and lurl.strip()) or \
-                        (ctype == "file" and lattach is not None)
+                        (ctype == "file" and lattach_bytes is not None)
                 if valid:
-                    add_language_card(limg, lcap.strip(), ltag.strip() or "General",
+                    add_language_card(limg_bytes, lcap.strip(), ltag.strip() or "General",
                                        content_type=ctype, url=(lurl.strip() if lurl else None),
-                                       attach_file=lattach)
+                                       file_bytes=lattach_bytes, file_name=lattach_name)
                     st.success("¡Tarjeta agregada! ✨")
                     st.rerun()
                 else:
