@@ -765,6 +765,10 @@ def run(sql, params=(), fetch=False, one=False):
     if fetch:
         data = c.fetchone() if one else c.fetchall()
     conn.commit()
+    # Autoguardado: si la consulta modificó datos (no es un simple SELECT),
+    # marcamos la sesión como "sucia" para subirla sola a GitHub al final del script.
+    if not fetch:
+        st.session_state["_dirty"] = True
     return data
 
 
@@ -2683,3 +2687,11 @@ elif page == "trash":
     page_trash()
 elif page == "languages":
     page_languages()
+
+# ============================================================
+# AUTOGUARDADO SILENCIOSO EN GITHUB
+# Si algo cambió durante esta ejecución (agregar/editar/borrar), lo sube solo.
+# ============================================================
+if st.session_state.get("_dirty") and github_configured():
+    save_db_to_github()
+    st.session_state["_dirty"] = False
