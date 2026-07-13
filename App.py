@@ -1281,26 +1281,39 @@ def load_db_from_github():
         st.sidebar.warning(f"No se pudo cargar desde GitHub: {e}")
 
 
-def save_db_to_github():
+def save_db_to_github(max_retries=3):
+    """Sube la base de datos a GitHub. Reintenta si hubo un conflicto de sincronización
+    (409, alguien más escribió justo antes) volviendo a pedir el sha más reciente.
+    Devuelve True/False según si el guardado se completó de verdad — nunca asumas
+    que se guardó solo porque se intentó."""
     if not github_configured():
         st.sidebar.error("Faltan GITHUB_TOKEN / GITHUB_REPO / GITHUB_DB_PATH en secrets.")
-        return
-    try:
-        content_b64 = base64.b64encode(Path(DB_PATH).read_bytes()).decode("utf-8")
-        sha = None
-        r = requests.get(github_api_url(), headers=github_headers(), timeout=15)
-        if r.status_code == 200:
-            sha = r.json().get("sha")
-        payload = {"message": f"🌸 update {datetime.datetime.now().isoformat()}", "content": content_b64}
-        if sha:
-            payload["sha"] = sha
-        r2 = requests.put(github_api_url(), headers=github_headers(), data=json.dumps(payload), timeout=15)
-        if r2.status_code in (200, 201):
-            st.sidebar.success("✅ Guardado en GitHub")
-        else:
-            st.sidebar.error(f"Error GitHub: {r2.status_code}")
-    except Exception as e:
-        st.sidebar.error(f"Error al guardar en GitHub: {e}")
+        return False
+    content_b64 = base64.b64encode(Path(DB_PATH).read_bytes()).decode("utf-8")
+    for attempt in range(max_retries):
+        try:
+            sha = None
+            r = requests.get(github_api_url(), headers=github_headers(), timeout=15)
+            if r.status_code == 200:
+                sha = r.json().get("sha")
+            payload = {"message": f"🌸 update {datetime.datetime.now().isoformat()}", "content": content_b64}
+            if sha:
+                payload["sha"] = sha
+            r2 = requests.put(github_api_url(), headers=github_headers(), data=json.dumps(payload), timeout=15)
+            if r2.status_code in (200, 201):
+                st.session_state["_last_sync_error"] = None
+                return True
+            elif r2.status_code == 409 and attempt < max_retries - 1:
+                # Alguien más escribió justo antes que nosotros: reintentamos con el sha nuevo.
+                continue
+            else:
+                st.session_state["_last_sync_error"] = f"Error GitHub: {r2.status_code}"
+                return False
+        except Exception as e:
+            st.session_state["_last_sync_error"] = f"Error al guardar en GitHub: {e}"
+            return False
+    st.session_state["_last_sync_error"] = "No se pudo guardar tras varios intentos (conflicto de sincronización)."
+    return False
 
 
 # ============================================================
@@ -1418,8 +1431,15 @@ if "page" not in st.session_state:
 
 inject_css()
 
+# ---- Carga inicial: SOLO si el archivo local todavía no existe (contenedor recién
+# arrancado). Antes se descargaba de GitHub cada vez que empezaba una sesión nueva
+# (por ejemplo, tras un corte de conexión de medio segundo), y eso sobreescribía
+# tu base de datos local con una copia vieja de GitHub — así fue como se borró el
+# horario. Ahora, si el archivo local ya existe, se respeta (es más probable que
+# esté más al día que lo que hay subido). ----
 if "db_loaded" not in st.session_state:
-    load_db_from_github()
+    if not Path(DB_PATH).exists():
+        load_db_from_github()
     st.session_state["db_loaded"] = True
 
 init_db()
@@ -1471,13 +1491,24 @@ with st.sidebar:
     st.markdown('<div class="bow-divider"><span>🎀</span></div>', unsafe_allow_html=True)
     if github_configured():
         if st.button("☁️ Guardar en GitHub", use_container_width=True):
-            save_db_to_github()
+            if save_db_to_github():
+                st.sidebar.success("✅ Guardado en GitHub")
         st.caption("Sincronización con GitHub activa ✅")
+        with st.expander("🔄 Recargar desde GitHub (avanzado)"):
+            st.caption("Solo úsalo si sabes que GitHub tiene una versión más nueva que la de aquí — esto sobreescribe lo que tengas ahora mismo en pantalla.")
+            if st.button("🔄 Recargar desde GitHub ahora", use_container_width=True):
+                load_db_from_github()
+                get_conn.clear()
+                st.success("Recargado desde GitHub ✨")
+                st.rerun()
     else:
         st.caption(
             "💡 Para persistencia en GitHub agrega en `.streamlit/secrets.toml`:\n\n"
             "```\nGITHUB_TOKEN = \"...\"\nGITHUB_REPO = \"usuario/repo\"\nGITHUB_DB_PATH = \"data/otaku_bitacora.db\"\n```"
         )
+
+    if st.session_state.get("_last_sync_error"):
+        st.sidebar.error(f"⚠️ El último guardado en GitHub falló: {st.session_state['_last_sync_error']}\n\nTus datos siguen aquí en la app, pero todavía no llegaron a GitHub. Se reintentará solo en tu próxima acción.")
 
 # ============================================================
 # HOME: bloque de calendario grande + tareas/citas
@@ -2691,7 +2722,10 @@ elif page == "languages":
 # ============================================================
 # AUTOGUARDADO SILENCIOSO EN GITHUB
 # Si algo cambió durante esta ejecución (agregar/editar/borrar), lo sube solo.
+# Solo se marca como "ya guardado" si el guardado se completó de verdad —
+# si falla, se queda pendiente y se reintenta en la próxima interacción,
+# en vez de darse por guardado silenciosamente y perder el cambio.
 # ============================================================
 if st.session_state.get("_dirty") and github_configured():
-    save_db_to_github()
-    st.session_state["_dirty"] = False
+    if save_db_to_github():
+        st.session_state["_dirty"] = False
